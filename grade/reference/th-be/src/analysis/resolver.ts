@@ -1,6 +1,7 @@
 import { earliestError, fail, succeed, syntaxErrorAt, type Result, type RippleError, type SourcePosition } from "../errors";
+import { requireEntry } from "../invariants";
 import { BUILTIN_NAMES } from "../language/builtin-names";
-import type { Block, Expression, FunctionDeclaration, Identifier, Program, Statement } from "../syntax/ast";
+import type { Block, Call, Expression, FunctionDeclaration, Identifier, Program, Statement } from "../syntax/ast";
 import type { IdentifierToken } from "../syntax/tokens";
 import { visitExpression } from "../syntax/walk";
 import type { Declaration, DeclarationKind, DeclarationSite, Resolution, ScopeInfo, ScopeOwner } from "./model";
@@ -12,6 +13,17 @@ export type ResolvedProgram = {
   readonly resolutions: ReadonlyMap<Identifier, Resolution | null>;
   readonly declarations: ReadonlyMap<DeclarationSite, Declaration>;
 };
+
+/** What `identifier` refers to; null when it is unresolved. The resolver records every identifier, so a missing entry is an interpreter bug. O(1). */
+export function resolutionIn(resolutions: ReadonlyMap<Identifier, Resolution | null>, identifier: Identifier): Resolution | null {
+  return requireEntry(resolutions, identifier, "resolution of the identifier");
+}
+
+/** What the callee of `call` resolves to; null when the callee is not a bare identifier or is unresolved. O(1). */
+export function calleeDeclarationOf(resolutions: ReadonlyMap<Identifier, Resolution | null>, call: Call): Declaration | null {
+  if (call.callee.kind !== "Identifier") return null;
+  return resolutionIn(resolutions, call.callee)?.declaration ?? null;
+}
 
 type ScopeBuilder = {
   readonly parent: ScopeBuilder | null;
@@ -157,7 +169,7 @@ class Resolver {
     this.resolveExpression(target);
     this.resolveExpression(value);
     if (target.kind !== "Identifier") return;
-    const kind = this.resolutions.get(target)?.declaration.kind;
+    const kind = resolutionIn(this.resolutions, target)?.declaration.kind;
     if (kind === "fn" || kind === "builtin") this.report(target.token, `cannot assign to ${kind === "fn" ? "function" : "builtin"} '${target.name}'`);
   }
 

@@ -5,7 +5,7 @@ import { collectFunctions } from "../syntax/walk";
 import { collectFunctionFacts } from "./function-facts";
 import { summarizeFunctions } from "./function-summaries";
 import type { Analysis, Declaration, DeclarationSite, Resolution, ScopeInfo, ScopeOwner, Step } from "./model";
-import { resolveProgram, type ResolvedProgram } from "./resolver";
+import { resolutionIn, resolveProgram, type ResolvedProgram } from "./resolver";
 import { planRuns } from "./runs";
 
 export type { Analysis, Declaration, RunMember, ScopeInfo, Step } from "./model";
@@ -26,7 +26,7 @@ function createAnalysis(resolved: ResolvedProgram, steps: ReadonlyMap<Program | 
   return {
     builtinScope: resolved.builtinScope,
     scopeOf: (owner: ScopeOwner): ScopeInfo => requireEntry(resolved.scopeInfos, owner, "scope for the node"),
-    resolutionOf: (identifier: Identifier): Resolution | null => requireEntry(resolved.resolutions, identifier, "resolution of the identifier"),
+    resolutionOf: (identifier: Identifier): Resolution | null => resolutionIn(resolved.resolutions, identifier),
     declarationOf: (site: DeclarationSite): Declaration => requireEntry(resolved.declarations, site, "declaration for the node"),
     stepsOf: (statementList: Program | Block): readonly Step[] => requireEntry(steps, statementList, "steps for the statement list"),
   };
