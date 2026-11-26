@@ -51,6 +51,7 @@ export function startServer(): ReturnType<typeof Bun.serve>;
 - A JSON number counts as an integer when its value is a whole number (`5`, `5.0` and `5e0` are all the integer 5). Numbers given as strings are not numbers.
 - String length is counted in Unicode code points. Strings are stored and returned exactly as sent (no trimming, no case change).
 - Query strings are ignored. Paths are matched exactly as sent: a trailing slash, or any extra or missing segment, makes the path an unknown route. Path segments are compared as raw text (no percent-decoding).
+- Every string anywhere in the body must be well-formed Unicode: a string containing an unpaired UTF-16 surrogate (for example the JSON escape "\ud800" on its own) is invalid → 400 invalid_input.
 
 ## Data rules
 
