@@ -7,6 +7,10 @@ export function isJsonObject(value: unknown): value is JsonObject {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
+export function isWholeNumberInRange(value: unknown, minimum: number, maximum: number): value is number {
+  return typeof value === 'number' && Number.isSafeInteger(value) && value >= minimum && value <= maximum;
+}
+
 /** Parses UTF-8 JSON text that must contain an object. */
 export function parseJsonObject(text: string): Result<JsonObject, ApiFailure> {
   let parsed: unknown;

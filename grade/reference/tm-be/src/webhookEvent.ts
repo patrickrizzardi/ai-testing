@@ -1,5 +1,5 @@
 import { apiFailure, type ApiFailure } from './apiError.ts';
-import { isJsonObject, type JsonObject } from './json.ts';
+import { isJsonObject, isWholeNumberInRange, type JsonObject } from './json.ts';
 import { fail, succeed, type Result } from './result.ts';
 import { isSupportedCurrency, type Currency } from './types.ts';
 
@@ -35,7 +35,7 @@ function readText(object: JsonObject, key: string, label: string): Field<string>
 
 function readWholeNumber(object: JsonObject, key: string, label: string, minimum: number, maximum: number): Field<number> {
   const value = object[key];
-  return typeof value === 'number' && Number.isSafeInteger(value) && value >= minimum && value <= maximum
+  return isWholeNumberInRange(value, minimum, maximum)
     ? succeed(value)
     : invalidInput(`${label} must be an integer from ${minimum} to ${maximum}`);
 }
