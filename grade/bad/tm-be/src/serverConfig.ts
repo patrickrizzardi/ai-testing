@@ -34,5 +34,9 @@ export function readServerConfig(env: Record<string, string | undefined>): Resul
   if (secret === undefined || secret.length === 0) return fail('WEBHOOK_SECRET is required');
   const fees = readFees(env.FEES_JSON);
   if (!fees.ok) return fees;
-  return succeed({ port: port.value, dbPath: env.DB_PATH ?? DEFAULT_DB_PATH, secret, fees: fees.value });
+  const dbPath = env.DB_PATH ?? DEFAULT_DB_PATH;
+  // SQLite opens "" as a private temporary database: the ledger and every recorded event id
+  // would vanish on restart, so a mistyped DB_PATH must stop the server, not run it amnesiac.
+  if (dbPath.length === 0) return fail('DB_PATH must be a non-empty file path');
+  return succeed({ port: port.value, dbPath, secret, fees: fees.value });
 }
