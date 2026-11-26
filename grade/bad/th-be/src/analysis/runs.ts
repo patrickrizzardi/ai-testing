@@ -4,7 +4,7 @@ import { containsCall, visitExpression, visitStatements } from "../syntax/walk";
 import { ASYNCHRONOUS_BUILTINS } from "../language/builtin-names";
 import type { FunctionSummary } from "./function-summaries";
 import type { RunMember, Step } from "./model";
-import type { ResolvedProgram } from "./resolver";
+import { calleeDeclarationOf, type ResolvedProgram } from "./resolver";
 
 type StatementList = { readonly owner: Program | Block; readonly statements: readonly Statement[] };
 
@@ -65,20 +65,20 @@ class RunPlanner {
 
   /** `sleep`, `fetch`, or an asynchronous contained function, called by name. */
   private isConcurrentCallee(call: Call): boolean {
-    if (call.callee.kind !== "Identifier") return false;
-    const declaration = this.program.resolutions.get(call.callee)?.declaration;
-    if (declaration === undefined) return false;
+    const declaration = calleeDeclarationOf(this.program.resolutions, call);
+    if (declaration === null) return false;
     if (declaration.kind === "builtin") return ASYNCHRONOUS_BUILTINS.has(declaration.name);
     if (declaration.declaredFunction === null) return false;
-    const summary = this.summaries.get(declaration.declaredFunction);
-    return summary !== undefined && summary.asynchronous && summary.contained;
+    const summary = requireEntry(this.summaries, declaration.declaredFunction, "summary of a function");
+    return summary.asynchronous && summary.contained;
   }
 
   private namesOf(member: RunMember): MemberNames {
     const uses = namesIn(member.call);
-    const callee = member.call.callee.kind === "Identifier" ? this.program.resolutions.get(member.call.callee)?.declaration.declaredFunction : null;
-    const summary = callee === null || callee === undefined ? undefined : this.summaries.get(callee);
-    for (const name of summary?.reachOutsideNames ?? []) uses.add(name);
+    const callee = calleeDeclarationOf(this.program.resolutions, member.call)?.declaredFunction ?? null;
+    if (callee !== null) {
+      for (const name of requireEntry(this.summaries, callee, "summary of a function").reachOutsideNames) uses.add(name);
+    }
     return { defines: new Set(member.binding === null ? [] : [member.binding.name]), uses };
   }
 

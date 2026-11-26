@@ -1,7 +1,7 @@
 import { ASYNCHRONOUS_BUILTINS, MUTATING_BUILTIN } from "../language/builtin-names";
 import type { Call, Expression, FunctionDeclaration, Identifier } from "../syntax/ast";
 import { ownExpressions, visitExpression, visitStatements } from "../syntax/walk";
-import type { ResolvedProgram } from "./resolver";
+import { calleeDeclarationOf, resolutionIn, type ResolvedProgram } from "./resolver";
 
 /** What the rules of spec section 8 need to know about one function body (nested function bodies excluded). */
 export type FunctionFacts = {
@@ -63,7 +63,7 @@ class FactCollector {
 
   /** True when `identifier` resolves to a variable declared in this function's own scopes. */
   private isLocalVariable(identifier: Identifier): boolean {
-    const declaration = this.program.resolutions.get(identifier)?.declaration;
+    const declaration = resolutionIn(this.program.resolutions, identifier)?.declaration;
     return declaration !== undefined && declaration.kind === "variable" && declaration.owner === this.functionDeclaration;
   }
 
@@ -73,8 +73,8 @@ class FactCollector {
   }
 
   private observeOccurrence(identifier: Identifier): void {
-    const resolution = this.program.resolutions.get(identifier);
-    if (resolution === null || resolution === undefined) {
+    const resolution = resolutionIn(this.program.resolutions, identifier);
+    if (resolution === null) {
       this.outsideNames.add(identifier.name);
       this.hasNonLocalVariableOccurrence = true;
       return;
@@ -86,8 +86,8 @@ class FactCollector {
   }
 
   private observeCall(call: Call): void {
-    const declaration = call.callee.kind === "Identifier" ? this.program.resolutions.get(call.callee)?.declaration : undefined;
-    if (declaration === undefined || declaration.kind === "variable") {
+    const declaration = calleeDeclarationOf(this.program.resolutions, call);
+    if (declaration === null || declaration.kind === "variable") {
       this.hasOpaqueCall = true;
     } else if (declaration.declaredFunction !== null) {
       this.calledFunctions.add(declaration.declaredFunction);
@@ -100,7 +100,7 @@ class FactCollector {
   private observeAssignment(target: Expression): void {
     if (target.kind === "Identifier") {
       if (!this.isLocalVariable(target)) this.assignsNonLocalVariable = true;
-    } else if (target.kind === "Index") {
+    } else {
       this.recordMutation(mutationRoot(target));
     }
   }
