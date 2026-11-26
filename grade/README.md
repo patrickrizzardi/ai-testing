@@ -12,7 +12,7 @@ Exit 2 covers: bad arguments, missing solution dir, missing/invalid `tasks/<id>.
 ## Steps (always all run, in this order)
 
 1. **layout**: every `entries` file exists; `package.json` exists, is valid JSON and has no non-empty `dependencies`.
-2. **typecheck**: `tsc --noEmit -p <solution-dir>` (grade's own TypeScript). If `package.json` has `devDependencies` and there is no `node_modules`, `bun install` runs in the solution first; a failed install is a typecheck error.
+2. **typecheck**: the solution's own compiler, `node_modules/typescript/bin/tsc --noEmit -p <solution-dir>`, with the solution's `tsconfig.json`. `package.json` must pin `devDependencies.typescript`; unless it is already in `node_modules`, `bun install` runs in the solution first (lockfiles it creates are removed again). A missing pin or failed install is a typecheck error. `typecheck.compiler` is the version that ran (`null` when none could be installed). The gates' compiler-API parsing uses grade's own TypeScript.
 3. **gates** (TypeScript compiler API; `node_modules`, `dist`, `build`, `coverage` are never scanned; test files are `*.test.*`, `*.spec.*` and anything under `test/`, `tests/`, `__tests__/`):
    - `duct-tape` (tests included): upper-case `TODO|FIXME|HACK|XXX` in comments; `@ts-ignore`, `@ts-expect-error`, `eslint-disable` in comments; any `any` type.
    - `swallowed-error`: `catch` clauses and `.catch(fn)` whose body is empty or only returns a literal default (`null`, `undefined`, `void 0`, booleans, numbers, strings, `[]`, `{}`, bare `return`).
@@ -35,7 +35,7 @@ Only `entries` is required. `gates` (default: all four) lists the gates that app
 ## `--json` output
 
 ```
-{ task, solutionDir, layout: {pass, findings}, typecheck: {pass, errors},
+{ task, solutionDir, layout: {pass, findings}, typecheck: {pass, compiler, errors},
   gates: [{ id, pass, findings: [{ file, line, message }] }],
   tests: { passed, failed, total, failures: [name] }, rightFirstTime }
 ```

@@ -19,6 +19,7 @@ export interface LayoutResult {
 
 export interface TypecheckResult {
   pass: boolean;
+  compiler: string | null;
   errors: string[];
 }
 
