@@ -52,6 +52,13 @@ describe('verifySignature', () => {
     expect(justPast.ok ? 'accepted' : justPast.error.code).toBe('stale_signature');
   });
 
+  test('a clock with no valid time fails instead of counting as fresh', () => {
+    // Bug caught: NaN from an Invalid Date makes |now - t| > 300 false, so replays pass. Tier: High.
+    const header = `t=1700000000,v1=${validSignature}`;
+    const result = verifySignature({ header, rawBody: bytes(BODY), secret: SECRET, nowMilliseconds: Number.NaN });
+    expect(result.ok ? 'accepted' : result.error.code).toBe('internal_error');
+  });
+
   test('a wrong signature is invalid even when also stale', () => {
     // Bug caught: freshness checked before authenticity, revealing validity to an attacker.
     expect(check(`t=1700000000,v1=${'0'.repeat(64)}`, SIGNED_AT + 10_000)).toBe('invalid_signature');

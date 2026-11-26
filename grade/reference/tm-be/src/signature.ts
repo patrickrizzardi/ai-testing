@@ -1,5 +1,5 @@
 import { createHmac, timingSafeEqual } from 'node:crypto';
-import { apiFailure, type ApiFailure } from './apiError.ts';
+import { apiFailure, internalFailure, type ApiFailure } from './apiError.ts';
 import { fail, succeed, type Result } from './result.ts';
 
 const HEADER_SHAPE = /^t=(\d{1,15}),v1=([0-9a-f]{64})$/;
@@ -31,6 +31,12 @@ export function verifySignature(check: SignatureCheck): Result<void, ApiFailure>
     .digest();
   if (!timingSafeEqual(expected, Buffer.from(providedHex, 'hex'))) return invalid;
 
+  // A clock that yields no time (an Invalid Date gives NaN) must not pass: NaN > 300 is false,
+  // so without this check a broken clock would accept every replayed signature as fresh.
+  if (!Number.isFinite(check.nowMilliseconds)) {
+    console.error('tm-be: the clock returned no valid time; the freshness check cannot run');
+    return fail(internalFailure());
+  }
   const ageSeconds = Math.abs(check.nowMilliseconds / 1000 - Number(signedAtSeconds));
   if (ageSeconds > TOLERANCE_SECONDS) {
     return fail(apiFailure('stale_signature', `Webhook-Signature is older or newer than ${TOLERANCE_SECONDS} seconds`));
