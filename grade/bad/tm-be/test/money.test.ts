@@ -6,7 +6,7 @@ import type { FeeConfig } from '../src/types.ts';
 const feesOf = (percentBps: number, usdFixed = 0): FeeConfig => ({ percentBps, fixedMinor: { USD: usdFixed, EUR: 0, JPY: 0, BHD: 0 } });
 
 describe('computeCaptureAmounts', () => {
-  // Bug caught: half-up or floor rounding of the percentage fee, a Number product losing precision, an uncapped fee.
+  // Bug caught: half-up or floor rounding of the percentage fee, a Number product losing precision, an uncapped fee. Tier: High.
   const cases: [string, number, FeeConfig, number][] = [
     ['tie 2.5 goes down to even 2', 25, feesOf(1000), 2],
     ['tie 3.5 goes up to even 4', 35, feesOf(1000), 4],
@@ -30,7 +30,7 @@ describe('computeCaptureAmounts', () => {
 });
 
 describe('splitLargestRemainder', () => {
-  // Bug caught: wrong tie order, shares that do not sum to the total, floating-point floors on large totals.
+  // Bug caught: wrong tie order, shares that do not sum to the total, floating-point floors on large totals. Tier: High.
   const cases: [string, number, number[], number[]][] = [
     ['worked example: ties go to the earlier split', 101, [3333, 3333, 3334], [34, 33, 34]],
     ['refund example', 50, [3333, 3333, 3334], [17, 16, 17]],

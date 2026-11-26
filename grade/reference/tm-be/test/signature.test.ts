@@ -16,7 +16,7 @@ function check(header: string | null, nowSeconds = SIGNED_AT, body = BODY) {
 
 describe('verifySignature', () => {
   test('the worked example of the spec is accepted', () => {
-    // Bug caught: wrong signed string or key encoding.
+    // Bug caught: wrong signed string or key encoding. Tier: High.
     expect(check('t=1700000000,v1=c4774e8bfe5b84c1dee1146183d174d483187b06388692e3c6d912805c0ad8ea')).toBe('accepted');
   });
 
@@ -36,13 +36,13 @@ describe('verifySignature', () => {
   ];
   for (const [name, header] of malformedHeaders) {
     test(`rejects: ${name}`, () => {
-      // Bug caught: accepting a header the contract says is invalid.
+      // Bug caught: accepting a header the contract says is invalid. Tier: High.
       expect(check(header)).toBe('invalid_signature');
     });
   }
 
   test('freshness window is inclusive at 300 seconds and keeps fractions', () => {
-    // Bug caught: off-by-one at the window edge, rounding `now` to whole seconds.
+    // Bug caught: off-by-one at the window edge, rounding `now` to whole seconds. Tier: High.
     const header = `t=1700000000,v1=${validSignature}`;
     expect(check(header, SIGNED_AT + 300)).toBe('accepted');
     expect(check(header, SIGNED_AT - 300)).toBe('accepted');
@@ -60,7 +60,7 @@ describe('verifySignature', () => {
   });
 
   test('a wrong signature is invalid even when also stale', () => {
-    // Bug caught: freshness checked before authenticity, revealing validity to an attacker.
+    // Bug caught: freshness checked before authenticity, revealing validity to an attacker. Tier: High.
     expect(check(`t=1700000000,v1=${'0'.repeat(64)}`, SIGNED_AT + 10_000)).toBe('invalid_signature');
   });
 });

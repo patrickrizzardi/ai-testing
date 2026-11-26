@@ -27,7 +27,7 @@ afterEach(() => {
 
 describe('idempotency guard', () => {
   test('the unique key lets exactly one connection record an event id and shows the others the first body', () => {
-    // Bug caught: a check-then-insert guard (read, then write) that lets a retry record the id twice.
+    // Bug caught: a check-then-insert guard (read, then write) that lets a retry record the id twice. Tier: High.
     const dbPath = join(directory, 'ledger.db');
     const first = open(dbPath);
     const second = open(dbPath);
@@ -41,7 +41,7 @@ describe('runInTransaction', () => {
   const countEvents = (db: Database) => db.query<{ total: number }, []>('SELECT count(*) AS total FROM events').get()?.total;
 
   test('commits on success; rolls back on a failure value; rolls back and rethrows on a throw', () => {
-    // Bug caught: the event id staying recorded after a rejected or crashed request (the event could then never be retried).
+    // Bug caught: the event id staying recorded after a rejected or crashed request (the event could then never be retried). Tier: High.
     const db = open(join(directory, 'ledger.db'));
     runInTransaction(db, () => {
       recordEvent(db, 'kept', '{}');

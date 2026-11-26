@@ -23,7 +23,7 @@ function verdict(body: unknown): string {
 
 describe('validateEvent', () => {
   test('accepts one valid event of every type and ignores unknown fields', () => {
-    // Bug caught: rejecting extra fields, mis-shaping a data type.
+    // Bug caught: rejecting extra fields, mis-shaping a data type. Tier: High.
     expect(verdict(envelope({ extra: [1, 2] }))).toBe('valid');
     expect(verdict(envelope({ type: 'payment.captured', data: { paymentId: 'p' } }))).toBe('valid');
     expect(verdict(envelope({ type: 'payment.failed', data: { paymentId: 'p' } }))).toBe('valid');
@@ -63,7 +63,7 @@ describe('validateEvent', () => {
   ];
   for (const [name, body] of invalid) {
     test(`400 invalid_input: ${name}`, () => {
-      // Bug caught: a malformed event reaching the ledger.
+      // Bug caught: a malformed event reaching the ledger. Tier: High.
       expect(verdict(body)).toBe('invalid_input');
     });
   }
@@ -71,13 +71,13 @@ describe('validateEvent', () => {
   const validDates = ['2024-02-29T23:59:59Z', '2000-02-29T00:00:00.123456+23:59', '2023-12-31T00:00:00-05:30'];
   for (const createdAt of validDates) {
     test(`accepts createdAt ${createdAt}`, () => {
-      // Bug caught: calendar check too strict for leap years, fractions and offsets.
+      // Bug caught: calendar check too strict for leap years, fractions and offsets. Tier: High.
       expect(verdict(envelope({ createdAt }))).toBe('valid');
     });
   }
 
   test('unsupported currency is 422 only when every 400 check has passed', () => {
-    // Bug caught: 422 reported for a body that is also invalid (or 400 for a clean unsupported currency).
+    // Bug caught: 422 reported for a body that is also invalid (or 400 for a clean unsupported currency). Tier: High.
     expect(verdict(dataWith({ currency: 'usd' }))).toBe('unsupported_currency');
     expect(verdict(dataWith({ currency: 'GBP', amountMinor: 0 }))).toBe('invalid_input');
     expect(verdict(dataWith({ currency: 'GBP', splits: [] }))).toBe('invalid_input');
@@ -86,7 +86,7 @@ describe('validateEvent', () => {
 
 describe('canonicalJson', () => {
   test('is equal for key order, whitespace and number spelling, and differs for any value or extra field', () => {
-    // Bug caught: duplicate detection that treats a reordered body as a conflict, or a changed body as a duplicate.
+    // Bug caught: duplicate detection that treats a reordered body as a conflict, or a changed body as a duplicate. Tier: High.
     const canonical = (text: string) => {
       const parsed = parseJsonObject(text);
       if (!parsed.ok) throw new Error(parsed.error.message);
