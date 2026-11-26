@@ -1,0 +1,5 @@
+{
+  "name": "selftest-pass",
+  "private": true,
+  "type": "module"
+}

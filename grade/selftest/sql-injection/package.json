@@ -1,0 +1,5 @@
+{
+  "name": "selftest-sql-injection",
+  "private": true,
+  "type": "module"
+}

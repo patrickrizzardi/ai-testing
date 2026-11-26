@@ -1,0 +1,5 @@
+{
+  "name": "selftest-swallowed-error",
+  "private": true,
+  "type": "module"
+}

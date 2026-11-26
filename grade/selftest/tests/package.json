@@ -1,0 +1,5 @@
+{
+  "name": "selftest-tests",
+  "private": true,
+  "type": "module"
+}

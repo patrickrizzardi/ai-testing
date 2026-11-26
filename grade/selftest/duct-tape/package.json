@@ -1,0 +1,5 @@
+{
+  "name": "selftest-duct-tape",
+  "private": true,
+  "type": "module"
+}
