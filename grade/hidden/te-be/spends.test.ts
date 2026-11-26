@@ -8,9 +8,11 @@ import {
   createBudget,
   createUser,
   expectErrorReply,
+  illFormedCases,
   newEnv,
   post,
   rawWithLiteral,
+  storedStringsWithReplacementChar,
   summary,
   userWithBudget,
   withField,
@@ -172,6 +174,18 @@ describe("POST /users/{userId}/spends: spentAt", () => {
       json: { ...validSpend, spentAt },
     }));
     expect(await bodyMismatches(env, `/users/${userId}/spends`, cases, "accepted")).toEqual([]);
+  });
+});
+
+describe("POST /users/{userId}/spends: well-formed Unicode", () => {
+  test("a category or spentAt with an unpaired surrogate is rejected with 400 invalid_input and nothing is stored", async () => {
+    // Catches: a lone surrogate being echoed or stored as U+FFFD, or answered 422 no_budget instead of failing body validation first. Tier: High (untrusted input, data integrity).
+    const env = newEnv();
+    const userId = await userWithBudget(env);
+    const cases: BodyCase[] = [...illFormedCases(validSpend, "category"), ...illFormedCases(validSpend, "spentAt")];
+    expect(await bodyMismatches(env, `/users/${userId}/spends`, cases, "rejected")).toEqual([]);
+    expect(storedStringsWithReplacementChar(env)).toEqual([]);
+    expect(((await post(env, `/users/${userId}/spends`, validSpend)).body as { id: number }).id).toBe(1);
   });
 });
 

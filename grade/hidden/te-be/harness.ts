@@ -1,3 +1,4 @@
+import { Database } from "bun:sqlite";
 import { expect } from "bun:test";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -254,4 +255,51 @@ export async function runSummaryScenario(scenario: SummaryScenario): Promise<{ r
   const reply = await summary(env, userId, category);
   expect(reply.status).toBe(200);
   return { reply, summary: reply.body as SummaryBody };
+}
+
+/** Raw JSON string literals holding an unpaired UTF-16 surrogate (written as escapes, as a client would send them). */
+export const ILL_FORMED_STRING_LITERALS: readonly string[] = [
+  '"\\ud800"',
+  '"\\udc00"',
+  '"\\udbff"',
+  '"\\udfff"',
+  '"ab\\ud800cd"',
+  '"\\ud800a"',
+  '"\\udc00\\ud800"',
+];
+
+/** One rejected-body case per ill-formed literal, placed in `field` of `base`. */
+export function illFormedCases(base: Record<string, unknown>, field: string): BodyCase[] {
+  return ILL_FORMED_STRING_LITERALS.map((literal) => ({ label: `${field}=${literal}`, raw: rawWithLiteral(base, field, literal) }));
+}
+
+/**
+ * Every string held in the database file, read straight from SQLite on a
+ * separate read-only connection, because the API has no read-back route for
+ * stored names. Call after `env.reopen()` so the first app has closed cleanly.
+ */
+export function storedStrings(env: Env): string[] {
+  const database = new Database(env.dbPath, { readonly: true });
+  try {
+    const tables = database.query("SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%'").all() as Array<{ name: string }>;
+    const strings: string[] = [];
+    for (const { name } of tables) {
+      const rows = database.query(`SELECT * FROM "${name.replaceAll('"', '""')}"`).all() as Array<Record<string, unknown>>;
+      for (const row of rows) {
+        for (const value of Object.values(row)) {
+          if (typeof value === "string") strings.push(value);
+          else if (value instanceof Uint8Array) strings.push(new TextDecoder().decode(value));
+        }
+      }
+    }
+    return strings;
+  } finally {
+    database.close();
+  }
+}
+
+/** The stored strings that contain U+FFFD, the character SQLite substitutes for a lone surrogate. */
+export function storedStringsWithReplacementChar(env: Env): string[] {
+  env.reopen();
+  return storedStrings(env).filter((value) => value.includes("\uFFFD"));
 }

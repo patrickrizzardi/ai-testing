@@ -7,9 +7,11 @@ import {
   collectMismatches,
   createUser,
   expectErrorReply,
+  illFormedCases,
   newEnv,
   post,
   rawWithLiteral,
+  storedStringsWithReplacementChar,
   summary,
   withField,
   type BodyCase,
@@ -61,6 +63,16 @@ describe("POST /users/{userId}/budgets: category", () => {
       { label: "array", json: withField(validBudget, "category", ["groceries"]) },
     ];
     expect(await bodyMismatches(env, `/users/${userId}/budgets`, cases, "rejected")).toEqual([]);
+  });
+});
+
+describe("POST /users/{userId}/budgets: well-formed Unicode", () => {
+  test("a category with an unpaired surrogate is rejected with 400 invalid_input and nothing is stored", async () => {
+    // Catches: a lone surrogate slipping through category validation and being stored as U+FFFD. Tier: High (untrusted input, data integrity).
+    const env = newEnv();
+    const userId = await createUser(env);
+    expect(await bodyMismatches(env, `/users/${userId}/budgets`, illFormedCases(validBudget, "category"), "rejected")).toEqual([]);
+    expect(storedStringsWithReplacementChar(env)).toEqual([]);
   });
 });
 

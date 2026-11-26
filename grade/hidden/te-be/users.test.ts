@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { bodyMismatches, cleanupAll, newEnv, post, rawWithLiteral, withField, type BodyCase } from "./harness.ts";
+import { bodyMismatches, cleanupAll, illFormedCases, newEnv, post, rawWithLiteral, storedStrings, storedStringsWithReplacementChar, withField } from "./harness.ts";
+import type { BodyCase } from "./harness.ts";
 
 afterEach(cleanupAll);
 
@@ -108,6 +109,30 @@ describe("POST /users: timeZone", () => {
       if (reply.status !== 201 || (reply.body as { timeZone?: string }).timeZone !== timeZone) mismatches.push(`${timeZone} -> ${reply.status} ${reply.text}`);
     }
     expect(mismatches).toEqual([]);
+  });
+});
+
+describe("POST /users: well-formed Unicode", () => {
+  test("a name or timeZone with an unpaired surrogate is rejected with 400 invalid_input and nothing is stored", async () => {
+    // Catches: JSON.parse's lone surrogates passing validation and SQLite storing them as U+FFFD (echo differs from stored value). Tier: High (untrusted input, data integrity).
+    const env = newEnv();
+    const cases: BodyCase[] = [...illFormedCases(validUser, "name"), ...illFormedCases(validUser, "timeZone")];
+    expect(await bodyMismatches(env, "/users", cases, "rejected")).toEqual([]);
+    expect(storedStringsWithReplacementChar(env)).toEqual([]);
+    expect(((await post(env, "/users", validUser)).body as { id: number }).id).toBe(1);
+  });
+
+  test("a well-formed astral name, sent raw or as an escaped pair, is stored identically after reopening", async () => {
+    // Catches: over-rejecting valid surrogate pairs, or mangling astral characters on the way to SQLite. Tier: High (untrusted input, data integrity).
+    const env = newEnv();
+    const rawReply = await post(env, "/users", { name: "😀", timeZone: "UTC" });
+    const escapedReply = await env.send("POST", "/users", { raw: rawWithLiteral(validUser, "name", '"\\ud83d\\ude00 \\ud83d\\ude00"') });
+    expect([rawReply.status, (rawReply.body as { name?: string }).name]).toEqual([201, "😀"]);
+    expect([escapedReply.status, (escapedReply.body as { name?: string }).name]).toEqual([201, "😀 😀"]);
+    env.reopen();
+    const stored = storedStrings(env);
+    expect(stored).toContain("😀");
+    expect(stored).toContain("😀 😀");
   });
 });
 
