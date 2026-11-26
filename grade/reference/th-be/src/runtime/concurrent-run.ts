@@ -12,14 +12,14 @@ import { isHeapValue, type RuntimeValue } from "./values";
 export type RunHost = {
   readonly heap: Heap;
   evaluate(expression: Expression, scope: Scope, strand: Strand): Evaluation<RuntimeValue>;
-  invoke(callee: RuntimeValue, args: readonly RuntimeValue[], openParenthesis: SourcePosition, strand: Strand): Evaluation<RuntimeValue>;
+  invoke(callee: RuntimeValue, argumentValues: readonly RuntimeValue[], openParenthesis: SourcePosition, strand: Strand): Evaluation<RuntimeValue>;
 };
 
 /** A member after spec 9.3 step 2: its callee, its argument values, or the failure that stopped their evaluation. */
 type PreparedMember = {
   readonly member: RunMember;
   readonly callee: RuntimeValue;
-  readonly args: readonly RuntimeValue[];
+  readonly argumentValues: readonly RuntimeValue[];
   readonly failure: RuntimeFailure | null;
 };
 
@@ -31,29 +31,29 @@ type MemberOutcome = { readonly output: string[]; result: RuntimeValue; failure:
  * failure. Completed argument values are held on the strand's roots, the half-built ones are dropped.
  */
 function* prepareMember(host: RunHost, member: RunMember, scope: Scope, strand: Strand): Evaluation<PreparedMember> {
-  const args: RuntimeValue[] = [];
+  const argumentValues: RuntimeValue[] = [];
   let callee: RuntimeValue = null;
   let heldMark = strand.roots.mark();
   try {
     callee = yield* host.evaluate(member.call.callee, scope, strand);
-    for (const argument of member.call.args) {
+    for (const argument of member.call.argumentExpressions) {
       const value = yield* host.evaluate(argument, scope, strand);
       strand.roots.push(value);
       heldMark = strand.roots.mark();
-      args.push(value);
+      argumentValues.push(value);
     }
   } catch (failure) {
     if (!(failure instanceof RuntimeFailure)) throw failure;
     strand.roots.popTo(heldMark);
-    return { member, callee, args, failure };
+    return { member, callee, argumentValues, failure };
   }
-  return { member, callee, args, failure: null };
+  return { member, callee, argumentValues, failure: null };
 }
 
 /** Spec 9.3 step 4 for one member: runs its call on its own strand and records the outcome. */
 function* runMember(host: RunHost, prepared: PreparedMember, parent: Strand, strand: Strand, outcome: MemberOutcome): Evaluation<void> {
   try {
-    outcome.result = yield* host.invoke(prepared.callee, prepared.args, prepared.member.call.openParenthesis, strand);
+    outcome.result = yield* host.invoke(prepared.callee, prepared.argumentValues, prepared.member.call.openParenthesis, strand);
     // The parent is parked at the join: holding the result there keeps it alive until it is bound.
     parent.roots.push(outcome.result);
   } catch (failure) {
@@ -72,7 +72,7 @@ function bindResult(member: RunMember, scope: Scope, result: RuntimeValue): void
 function* runOneAtATime(host: RunHost, prepared: readonly PreparedMember[], scope: Scope, strand: Strand): Evaluation<void> {
   for (const next of prepared) {
     if (next.failure !== null) throw next.failure;
-    bindResult(next.member, scope, yield* host.invoke(next.callee, next.args, next.member.call.openParenthesis, strand));
+    bindResult(next.member, scope, yield* host.invoke(next.callee, next.argumentValues, next.member.call.openParenthesis, strand));
   }
 }
 
@@ -116,7 +116,7 @@ export function* executeConcurrentRun(host: RunHost, members: readonly RunMember
   const mark = strand.roots.mark();
   const prepared: PreparedMember[] = [];
   for (const member of members) prepared.push(yield* prepareMember(host, member, scope, strand));
-  if (prepared.some((next) => next.args.some(isHeapValue))) yield* runOneAtATime(host, prepared, scope, strand);
+  if (prepared.some((next) => next.argumentValues.some(isHeapValue))) yield* runOneAtATime(host, prepared, scope, strand);
   else yield* runConcurrently(host, prepared, scope, strand);
   strand.roots.popTo(mark);
 }

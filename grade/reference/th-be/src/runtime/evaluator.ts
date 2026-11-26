@@ -230,34 +230,34 @@ export class Evaluator implements RunHost {
   private *evaluateCall(call: Call, scope: Scope, strand: Strand): Evaluation<RuntimeValue> {
     const mark = strand.roots.mark();
     const callee = yield* this.evaluateHeld(call.callee, scope, strand);
-    const args = yield* this.evaluateAllHeld(call.args, scope, strand);
-    const result = yield* this.invoke(callee, args, call.openParenthesis, strand);
+    const argumentValues = yield* this.evaluateAllHeld(call.argumentExpressions, scope, strand);
+    const result = yield* this.invoke(callee, argumentValues, call.openParenthesis, strand);
     strand.roots.popTo(mark);
     return result;
   }
 
   /** The call rules of spec 6.3 and 7 for an already evaluated callee and arguments. */
-  *invoke(callee: RuntimeValue, args: readonly RuntimeValue[], openParenthesis: SourcePosition, strand: Strand): Evaluation<RuntimeValue> {
+  *invoke(callee: RuntimeValue, argumentValues: readonly RuntimeValue[], openParenthesis: SourcePosition, strand: Strand): Evaluation<RuntimeValue> {
     if (callee instanceof Closure) {
-      this.checkArgumentCount(callee.declaration.parameters.length, args, openParenthesis);
-      return yield* this.runClosure(callee, args, openParenthesis, strand);
+      this.checkArgumentCount(callee.declaration.parameters.length, argumentValues, openParenthesis);
+      return yield* this.runClosure(callee, argumentValues, openParenthesis, strand);
     }
     if (typeof callee === "object" && callee !== null && callee.kind === "builtin") {
-      this.checkArgumentCount(BUILTIN_ARITY[callee.name], args, openParenthesis);
-      return yield* callBuiltin(callee.name, { environment: this.environment, strand, args, position: openParenthesis });
+      this.checkArgumentCount(BUILTIN_ARITY[callee.name], argumentValues, openParenthesis);
+      return yield* callBuiltin(callee.name, { environment: this.environment, strand, argumentValues, position: openParenthesis });
     }
     return failAt(openParenthesis, "only functions can be called");
   }
 
-  private checkArgumentCount(expectedCount: number, args: readonly RuntimeValue[], openParenthesis: SourcePosition): void {
-    if (args.length !== expectedCount) failAt(openParenthesis, `expected ${expectedCount} arguments, got ${args.length}`);
+  private checkArgumentCount(expectedCount: number, argumentValues: readonly RuntimeValue[], openParenthesis: SourcePosition): void {
+    if (argumentValues.length !== expectedCount) failAt(openParenthesis, `expected ${expectedCount} arguments, got ${argumentValues.length}`);
   }
 
   /** Calls a user function: depth check, a scope with the parameters bound, then the body. */
-  private *runClosure(closure: Closure, args: readonly RuntimeValue[], openParenthesis: SourcePosition, strand: Strand): Evaluation<RuntimeValue> {
+  private *runClosure(closure: Closure, argumentValues: readonly RuntimeValue[], openParenthesis: SourcePosition, strand: Strand): Evaluation<RuntimeValue> {
     if (strand.depth + 1 > MAXIMUM_CALL_DEPTH) failAt(openParenthesis, `call depth exceeds ${MAXIMUM_CALL_DEPTH}`);
     const scope = createScope(this.analysis.scopeOf(closure.declaration), closure.scope);
-    args.forEach((argument, position) => {
+    argumentValues.forEach((argument, position) => {
       scope.slots[position] = argument;
     });
     const mark = strand.roots.mark();

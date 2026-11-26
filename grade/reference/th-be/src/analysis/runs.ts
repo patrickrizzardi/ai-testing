@@ -57,7 +57,7 @@ class RunPlanner {
     if (statement.kind !== "Let" && statement.kind !== "Expression") return null;
     if (statement.waits) return null;
     const expression = statement.kind === "Let" ? statement.initializer : statement.expression;
-    if (expression.kind !== "Call" || expression.args.some(containsCall) || !this.isConcurrentCallee(expression)) return null;
+    if (expression.kind !== "Call" || expression.argumentExpressions.some(containsCall) || !this.isConcurrentCallee(expression)) return null;
     return { statement, call: expression, binding: statement.kind === "Let" ? this.declarationOfLet(statement) : null };
   }
 

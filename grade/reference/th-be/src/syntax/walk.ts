@@ -20,7 +20,7 @@ function childExpressions(expression: Expression): readonly Expression[] {
     case "Binary":
       return [expression.left, expression.right];
     case "Call":
-      return [expression.callee, ...expression.args];
+      return [expression.callee, ...expression.argumentExpressions];
     case "Index":
       return [expression.target, expression.index];
     case "Field":

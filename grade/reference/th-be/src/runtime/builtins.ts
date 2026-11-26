@@ -22,14 +22,14 @@ type BuiltinCall = {
   readonly environment: BuiltinEnvironment;
   readonly strand: Strand;
   /** Argument values, already evaluated and checked against the arity. */
-  readonly args: readonly RuntimeValue[];
+  readonly argumentValues: readonly RuntimeValue[];
   /** The call's `(` token: where every builtin failure is located. */
   readonly position: SourcePosition;
 };
 
 function argumentAt(call: BuiltinCall, index: number): RuntimeValue {
-  const argument = call.args[index];
-  if (argument === undefined) throw new Error(`builtin called with ${call.args.length} arguments after the arity check`);
+  const argument = call.argumentValues[index];
+  if (argument === undefined) throw new Error(`builtin called with ${call.argumentValues.length} arguments after the arity check`);
   return argument;
 }
 

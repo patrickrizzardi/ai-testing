@@ -93,7 +93,7 @@ class FactCollector {
       this.calledFunctions.add(declaration.declaredFunction);
     } else {
       if (ASYNCHRONOUS_BUILTINS.has(declaration.name)) this.callsAsynchronousBuiltin = true;
-      if (declaration.name === MUTATING_BUILTIN) this.recordMutation(call.args[0] === undefined ? null : mutationRoot(call.args[0]));
+      if (declaration.name === MUTATING_BUILTIN) this.recordMutation(call.argumentExpressions[0] === undefined ? null : mutationRoot(call.argumentExpressions[0]));
     }
   }
 
