@@ -52,6 +52,7 @@ function syntaxErrorOf(source: string): { line: number; column: number } {
 }
 
 describe("parse: precedence and associativity (spec 3)", () => {
+  // Bug: wrong precedence or associativity silently changes the value of every program using the operator. Tier: High (parser).
   test.each([
     ["1 + 2 * 3", "(1 + (2 * 3))"],
     ["1 - 2 - 3", "((1 - 2) - 3)"],
@@ -69,18 +70,21 @@ describe("parse: precedence and associativity (spec 3)", () => {
     expect(expressionOf(source)).toBe(expected);
   });
 
+  // Bug: a statement starting with `{` parsed as a block instead of a record literal. Tier: High (parser).
   test("a statement starting with { is a record literal expression", () => {
     expect(expressionOf("{a: 1, b: [2]}")).toBe("{a:1,b:[2]}");
   });
 });
 
 describe("parse: statements", () => {
+  // Bug: the `wait` flag lost, so a statement that must run alone joins a concurrent run. Tier: High (parser).
   test("wait prefixes let and simple statements only", () => {
     const [letStatement, assignment, call] = parseStatements("wait let a = 1; wait a = 2; wait f();");
     expect([letStatement?.kind, assignment?.kind, call?.kind]).toEqual(["Let", "Assign", "Expression"]);
     expect([letStatement, assignment, call].every((statement) => statement !== undefined && "waits" in statement && statement.waits)).toBe(true);
   });
 
+  // Bug: `else if` parsed as an else block, hiding its condition from the analysis. Tier: High (parser).
   test("else if chains nest as if statements", () => {
     const [statement] = parseStatements("if a { } else if b { } else { }");
     expect(statement?.kind === "If" && statement.elseBranch?.kind).toBe("If");
@@ -88,6 +92,7 @@ describe("parse: statements", () => {
 });
 
 describe("parse: grammar errors are at the first token that cannot continue (spec 3)", () => {
+  // Bug: a grammar error reported at the wrong token (spec 3: the first token that cannot continue). Tier: High (parser).
   test.each([
     ["a missing initializer", "let x = ;", 1, 9],
     ["end of input inside a block", "if true {", 1, 10],
@@ -107,6 +112,7 @@ describe("parse: grammar errors are at the first token that cannot continue (spe
     expect(syntaxErrorOf(source)).toEqual({ line, column });
   });
 
+  // Bug: the later of a lexical and a grammar error reported instead of the earlier. Tier: High (parser).
   test("a lexical error before a grammar error wins, and a grammar error before a lexical error wins", () => {
     expect(syntaxErrorOf("let = 1 @")).toEqual({ line: 1, column: 5 });
     expect(syntaxErrorOf("let x = 1 + @")).toEqual({ line: 1, column: 13 });

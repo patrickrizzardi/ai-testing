@@ -8,6 +8,7 @@ function staticErrorOf(source: string): { line: number; column: number } | null 
 }
 
 describe("static errors (spec 4.2)", () => {
+  // Bug: an invalid program accepted, or reported at the wrong token (spec 4.2). Tier: High (validator).
   test.each([
     ["an assignment to a call result", "f(x) = 1;", 1, 6],
     ["an assignment to a parenthesised name", "(a) = 1;", 1, 5],
@@ -27,6 +28,7 @@ describe("static errors (spec 4.2)", () => {
     expect(staticErrorOf(source)).toEqual({ line, column });
   });
 
+  // Bug: a valid program rejected, which discards the whole program as a SyntaxError. Tier: High (validator).
   test.each([
     ["a valid target ending in a field after a call", "fn f() { return {}; }\nf().y = 1;"],
     ["a parenthesised base with a field suffix", "let a = {};\n(a).y = 1;"],
@@ -40,6 +42,7 @@ describe("static errors (spec 4.2)", () => {
     expect(staticErrorOf(source)).toBeNull();
   });
 
+  // Bug: the first-found error reported instead of the one with the smallest position. Tier: High (validator).
   test("with several errors the one with the smallest position is reported, whatever rule it breaks", () => {
     expect(staticErrorOf("return 1;\nlet a = 1;\nlet a = 2;")).toEqual({ line: 1, column: 1 });
     expect(staticErrorOf("let a = 1;\nlet a = 2;\n1 = 2;")).toEqual({ line: 2, column: 5 });

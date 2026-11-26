@@ -10,6 +10,7 @@ function createProgramScope(source: string) {
 }
 
 describe("Heap collection (spec 10)", () => {
+  // Bug: an allocation not counted, or an object freed before any collection. Tier: High (the heap counts are the observable contract).
   test("creating counts allocations; nothing is freed until a collection", () => {
     const heap = new Heap();
     heap.createArray([]);
@@ -17,6 +18,7 @@ describe("Heap collection (spec 10)", () => {
     expect(heap.counts).toEqual({ allocs: 2, frees: 0 });
   });
 
+  // Bug: a reachable object freed, an unreachable one kept, or one freed twice. Tier: High (the heap counts are the observable contract).
   test("a collection frees exactly the objects no root reaches, each once", () => {
     const heap = new Heap();
     const stack = heap.openRootStack();
@@ -32,6 +34,7 @@ describe("Heap collection (spec 10)", () => {
     expect(heap.counts).toEqual({ allocs: 4, frees: 4 });
   });
 
+  // Bug: an object freed while a concurrent member still holds it, or kept after both release it. Tier: High (the heap counts are the observable contract).
   test("an object held by two stacks survives until both release it", () => {
     const heap = new Heap();
     const first = heap.openRootStack();
@@ -47,6 +50,7 @@ describe("Heap collection (spec 10)", () => {
     expect(heap.counts.frees).toBe(1);
   });
 
+  // Bug: `remove` dropping every holding of an object, freeing a value that is still held. Tier: High (the heap counts are the observable contract).
   test("remove releases the topmost holding only, so a leaked holding keeps the object alive", () => {
     const heap = new Heap();
     const stack = heap.openRootStack();
@@ -61,6 +65,7 @@ describe("Heap collection (spec 10)", () => {
     expect(heap.counts.frees).toBe(1);
   });
 
+  // Bug: a value reachable only through a closure's scope or a parent scope freed while the closure lives. Tier: High (the heap counts are the observable contract).
   test("a scope reaches its variables and its parents; a closure reaches the scope it captured", () => {
     const { analysis, program, scope } = createProgramScope("fn make() { let kept = 1; fn inner() { } }\nlet slot = 1;");
     const heap = new Heap();
@@ -78,6 +83,7 @@ describe("Heap collection (spec 10)", () => {
     expect(heap.counts.frees).toBe(1);
   });
 
+  // Bug: a scope and its closure, which reach each other, never freed, so frees stays below allocs at the end. Tier: High (the heap counts are the observable contract).
   test("an unrooted scope and its hoisted closure, which reach each other, are collected with what the scope holds", () => {
     const { program, scope, analysis } = createProgramScope("fn cycle() { }\nlet held = 1;");
     const heap = new Heap();
@@ -88,6 +94,7 @@ describe("Heap collection (spec 10)", () => {
     expect(heap.counts).toEqual({ allocs: 1, frees: 1 });
   });
 
+  // Bug: `collectIfDue` never collecting, so a long loop keeps every dead object until the end. Tier: Medium (one resource contract, no constants pinned).
   test("collectIfDue collects after many creations", () => {
     const heap = new Heap();
     for (let created = 0; created < 10000; created += 1) heap.createArray([]);
@@ -95,6 +102,7 @@ describe("Heap collection (spec 10)", () => {
     expect(heap.counts).toEqual({ allocs: 10000, frees: 10000 });
   });
 
+  // Bug: tracing by recursion, so a deeply nested value overflows the stack and aborts the run. Tier: High (the heap counts are the observable contract).
   test("a deeply nested value is traced without recursion", () => {
     const heap = new Heap();
     const stack = heap.openRootStack();

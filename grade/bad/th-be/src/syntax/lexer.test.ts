@@ -28,6 +28,7 @@ function lastToken(source: string): Token {
 }
 
 describe("lex: tokens and positions", () => {
+  // Bug: a two-character operator split in two, so `<=` lexes as `<` then `=`. Tier: High (parser).
   test("longest punctuation wins", () => {
     expect(describeTokens("a<=b==c!=d||e&&f")).toEqual([
       "identifier:a@1:1", "punctuation:<=@1:2", "identifier:b@1:4", "punctuation:==@1:5", "identifier:c@1:7",
@@ -35,31 +36,38 @@ describe("lex: tokens and positions", () => {
     ]);
   });
 
+  // Bug: columns counted in code points, so every error after an astral character is located wrong. Tier: High (parser).
   test("columns count UTF-16 code units, so a surrogate pair is two columns", () => {
     expect(describeTokens('"😀" x')).toEqual(["string:😀@1:1", "identifier:x@1:6", "end@1:7"]);
   });
 
+  // Bug: CR or tab taken as a line break or a wider column, shifting every reported position. Tier: High (parser).
   test("a line starts after LF only; CR and tab are one column of whitespace", () => {
     expect(describeTokens("a\r\n\tb")).toEqual(["identifier:a@1:1", "identifier:b@2:2", "end@2:3"]);
   });
 
+  // Bug: the end token placed before the last character or on the wrong line, misplacing every error at end of input. Tier: High (parser).
   test("the end token follows the last character, and is column 1 of the next line after a final LF", () => {
     expect(describeTokens("")).toEqual(["end@1:1"]);
     expect(describeTokens("x\n")).toEqual(["identifier:x@1:1", "end@2:1"]);
   });
 
+  // Bug: a comment swallowing the next line, or not separating tokens. Tier: High (parser).
   test("a comment runs to the LF and separates tokens", () => {
     expect(describeTokens("a// c\nb")).toEqual(["identifier:a@1:1", "identifier:b@2:1", "end@2:2"]);
   });
 
+  // Bug: a builtin name lexed as a keyword, or a keyword as an identifier. Tier: High (parser).
   test("keywords are not identifiers; builtin names are identifiers", () => {
     expect(describeTokens("let print nil")).toEqual(["keyword:let@1:1", "identifier:print@1:5", "keyword:nil@1:11", "end@1:14"]);
   });
 
+  // Bug: a leading-zero literal or the largest safe integer rejected or misread. Tier: High (parser).
   test("integers keep leading zeros out of their value; the largest safe integer is accepted", () => {
     expect(describeTokens("007 9007199254740991")).toEqual(["integer:7@1:1", "integer:9007199254740991@1:5", "end@1:21"]);
   });
 
+  // Bug: an escape decoded twice or out of order, changing every string that holds a backslash. Tier: High (parser).
   test("string escapes are decoded left to right", () => {
     const token = lex('"a\\n\\t\\r\\"\\\\n"')[0];
     expect(token).toMatchObject({ kind: "string", value: 'a\n\t\r"\\n' });
@@ -67,6 +75,7 @@ describe("lex: tokens and positions", () => {
 });
 
 describe("lex: lexical errors end the token stream", () => {
+  // Bug: a lexical error reported at the wrong token (spec 2 table), or a bad literal accepted. Tier: High (parser).
   test.each([
     ["a character that starts no token", "let x = 1 @ 2;", 1, 11],
     ["a lone ampersand", "a & b", 1, 3],
@@ -85,6 +94,7 @@ describe("lex: lexical errors end the token stream", () => {
     expect(last).toMatchObject({ error: { kind: "SyntaxError", line, column } });
   });
 
+  // Bug: lexing on past the first error, so a later lexical error is reported instead of it. Tier: High (parser).
   test("nothing after the first lexical error is read", () => {
     expect(describeTokens("a @ b @ c")).toEqual(["identifier:a@1:1", "invalid@1:3"]);
   });
