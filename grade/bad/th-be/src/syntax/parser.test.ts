@@ -32,7 +32,7 @@ function shape(expression: Expression): string {
     case "Binary":
       return `(${shape(expression.left)} ${expression.operator} ${shape(expression.right)})`;
     case "Call":
-      return `${shape(expression.callee)}(${expression.args.map(shape).join(",")})`;
+      return `${shape(expression.callee)}(${expression.argumentExpressions.map(shape).join(",")})`;
     case "Index":
       return `${shape(expression.target)}[${shape(expression.index)}]`;
     case "Field":

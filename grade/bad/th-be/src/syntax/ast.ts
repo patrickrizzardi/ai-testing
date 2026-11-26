@@ -22,7 +22,7 @@ export type Binary = ExpressionBase & {
   readonly left: Expression;
   readonly right: Expression;
 };
-export type Call = ExpressionBase & { readonly kind: "Call"; readonly callee: Expression; readonly openParenthesis: PunctuationToken; readonly args: readonly Expression[] };
+export type Call = ExpressionBase & { readonly kind: "Call"; readonly callee: Expression; readonly openParenthesis: PunctuationToken; readonly argumentExpressions: readonly Expression[] };
 export type Index = ExpressionBase & { readonly kind: "Index"; readonly target: Expression; readonly openBracket: PunctuationToken; readonly index: Expression };
 export type Field = ExpressionBase & { readonly kind: "Field"; readonly target: Expression; readonly dot: PunctuationToken; readonly name: string };
 

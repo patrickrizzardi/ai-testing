@@ -1,5 +1,6 @@
 import type { Block, Call, Expression, FunctionDeclaration, LetStatement, Program, Statement } from "../syntax/ast";
 import { containsCall, visitExpression, visitStatements } from "../syntax/walk";
+import { ASYNCHRONOUS_BUILTINS } from "../language/builtin-names";
 import type { FunctionSummary } from "./function-summaries";
 import type { RunMember, Step } from "./model";
 import type { ResolvedProgram } from "./resolver";
@@ -57,7 +58,7 @@ class RunPlanner {
     if (statement.kind !== "Let" && statement.kind !== "Expression") return null;
     if (statement.waits) return null;
     const expression = statement.kind === "Let" ? statement.initializer : statement.expression;
-    if (expression.kind !== "Call" || expression.args.some(containsCall) || !this.isConcurrentCallee(expression)) return null;
+    if (expression.kind !== "Call" || expression.argumentExpressions.some(containsCall) || !this.isConcurrentCallee(expression)) return null;
     return { statement, call: expression, binding: statement.kind === "Let" ? this.declarationOfLet(statement) : null };
   }
 
@@ -72,7 +73,7 @@ class RunPlanner {
     if (call.callee.kind !== "Identifier") return false;
     const declaration = this.program.resolutions.get(call.callee)?.declaration;
     if (declaration === undefined) return false;
-    if (declaration.kind === "builtin") return declaration.name === "sleep" || declaration.name === "fetch";
+    if (declaration.kind === "builtin") return ASYNCHRONOUS_BUILTINS.has(declaration.name);
     if (declaration.declaredFunction === null) return false;
     const summary = this.summaries.get(declaration.declaredFunction);
     return summary !== undefined && summary.asynchronous && summary.contained;
@@ -101,12 +102,11 @@ class RunPlanner {
   }
 }
 
-/** The blocks written directly in `statement`, including those of an `else if` chain and a function body. */
+/** The blocks written directly in `statement`: those of an `if`, whose `else if` is a statement of its own, and a function body. */
 function nestedBlocks(statement: Statement): readonly Block[] {
   switch (statement.kind) {
     case "If":
-      if (statement.elseBranch === null) return [statement.thenBlock];
-      return statement.elseBranch.kind === "Block" ? [statement.thenBlock, statement.elseBranch] : [statement.thenBlock, ...nestedBlocks(statement.elseBranch)];
+      return statement.elseBranch?.kind === "Block" ? [statement.thenBlock, statement.elseBranch] : [statement.thenBlock];
     case "While":
     case "For":
     case "Function":

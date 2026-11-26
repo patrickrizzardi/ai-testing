@@ -225,8 +225,8 @@ class Parser {
       if (token.kind !== "punctuation") return expression;
       if (token.text === "(") {
         this.advance();
-        const args = this.parseCommaSeparated(")", () => this.parseExpression());
-        expression = { kind: "Call", first: expression.first, callee: expression, openParenthesis: token, args };
+        const argumentExpressions = this.parseCommaSeparated(")", () => this.parseExpression());
+        expression = { kind: "Call", first: expression.first, callee: expression, openParenthesis: token, argumentExpressions };
       } else if (token.text === "[") {
         this.advance();
         const index = this.parseExpression();

@@ -22,7 +22,11 @@ function factsOf(facts: ReadonlyMap<FunctionDeclaration, FunctionFacts>, functio
 function findAsynchronousFunctions(facts: ReadonlyMap<FunctionDeclaration, FunctionFacts>): Set<FunctionDeclaration> {
   const callers = new Map<FunctionDeclaration, FunctionDeclaration[]>();
   for (const [caller, callerFacts] of facts) {
-    for (const callee of callerFacts.calledFunctions) callers.set(callee, [...(callers.get(callee) ?? []), caller]);
+    for (const callee of callerFacts.calledFunctions) {
+      const callersOfCallee = callers.get(callee);
+      if (callersOfCallee === undefined) callers.set(callee, [caller]);
+      else callersOfCallee.push(caller);
+    }
   }
   const asynchronous = new Set<FunctionDeclaration>();
   const pending: FunctionDeclaration[] = [];
