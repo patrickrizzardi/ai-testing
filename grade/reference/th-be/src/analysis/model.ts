@@ -5,9 +5,8 @@ export type DeclarationKind = "builtin" | "fn" | "variable";
 export type Declaration = {
   readonly name: string;
   readonly kind: DeclarationKind;
-  /** Index of the declaration's cell in the runtime scope made from `scope`. */
+  /** Index of the declaration's cell in a runtime scope made from the `ScopeInfo` that lists it. */
   readonly slot: number;
-  readonly scope: ScopeInfo;
   /** The function whose own scopes make this declaration; null for the program scope and the builtins. */
   readonly owner: FunctionDeclaration | null;
   /** The declared function when `kind` is "fn". */
@@ -16,7 +15,6 @@ export type Declaration = {
 
 /** Static shape of one scope: what it declares and which functions are bound when it is entered. */
 export type ScopeInfo = {
-  readonly parent: ScopeInfo | null;
   readonly declarations: readonly Declaration[];
   /** Declarations of `fn` statements directly in the scope, in source order. */
   readonly hoisted: readonly Declaration[];

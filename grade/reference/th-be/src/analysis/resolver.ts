@@ -55,11 +55,11 @@ class Resolver {
   private createScope(parent: ScopeBuilder | null, owner: FunctionDeclaration | null): ScopeBuilder {
     const declarations: Declaration[] = [];
     const hoisted: Declaration[] = [];
-    return { parent, owner, names: new Map(), declarations, hoisted, info: { parent: parent?.info ?? null, declarations, hoisted } };
+    return { parent, owner, names: new Map(), declarations, hoisted, info: { declarations, hoisted } };
   }
 
   private addDeclaration(scope: ScopeBuilder, name: string, kind: DeclarationKind, declaredFunction: FunctionDeclaration | null): Declaration {
-    const declaration: Declaration = { name, kind, slot: scope.declarations.length, scope: scope.info, owner: scope.owner, declaredFunction };
+    const declaration: Declaration = { name, kind, slot: scope.declarations.length, owner: scope.owner, declaredFunction };
     scope.names.set(name, declaration);
     scope.declarations.push(declaration);
     if (kind === "fn") scope.hoisted.push(declaration);
