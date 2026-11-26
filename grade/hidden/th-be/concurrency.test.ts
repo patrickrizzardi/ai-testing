@@ -302,6 +302,64 @@ describe("contained functions (8)", () => {
   }
 });
 
+// Spec 8 and 9.2 read the whole function text, not only plain statements: the expression of an `if`, of every `else if`
+// of a chain, of a `while` and of a `for` counts like any other. Each case puts one hazard in one such position.
+describe("expressions outside a plain statement (8, 9.2)", () => {
+  // `condition` and `iterable` wrap an expression E that evaluates to nil/5/100 so the program stays well-typed and E is evaluated.
+  const positions: [string, (expression: string) => string][] = [
+    ["an if condition", (expression) => `if ${expression} == 1 { }`],
+    ["an else-if condition", (expression) => `if false { } else if ${expression} == 1 { }`],
+    ["the third condition of an else-if chain", (expression) => `if false { } else if false { } else if ${expression} == 1 { }`],
+    ["an else-if condition inside a loop body", (expression) => `for once in [1] { if false { } else if ${expression} == 1 { } }`],
+    ["a while condition", (expression) => `while ${expression} == 1 { }`],
+    ["a for iterable", (expression) => `for item in [${expression}] { }`],
+  ];
+  const twiceWithBody = (globals: string, body: string) => `${globals}\nfn w() { ${body} }\nw();\nw();`;
+
+  // Each hazard is one containment rule: [name, globals, prelude of w, expression E placed in the position].
+  const hazards: [string, string, string, string][] = [
+    ["rule 1: an opaque call", "fn noop() { }", "let f = noop;", "f()"],
+    ["rule 3: a push onto a non-local array", "let log = [];", "", "push(log, 1)"],
+    ["rule 4: a non-local read next to a local mutation", "let base = 5;", "let tmp = []; push(tmp, 1);", "base"],
+    ["reach: a call by name to a function that pushes onto a non-local array", "let log = [];\nfn touch() { push(log, 1); }", "", "touch()"],
+  ];
+  for (const [positionName, place] of positions) {
+    for (const [hazardName, globals, prelude, expression] of hazards) {
+      // Catches: the analysis skips this expression position (else-if condition: shipped in the reference), so a non-contained function runs concurrently (elapsed 10).
+      test(`not contained, so members run one at a time (elapsed 20): ${hazardName} in ${positionName}`, async () => {
+        const outcome = await exec(twiceWithBody(globals, `${prelude} sleep(10); ${place(expression)}`));
+        expect(outcome.error).toBeNull();
+        expect(outcome.elapsed).toBe(20);
+      });
+    }
+  }
+
+  const asynchronousSources: [string, string, string][] = [
+    ["a call to sleep", "", "sleep(10)"],
+    ["a call by name to an asynchronous function", "fn step() { sleep(10); }", "step()"],
+  ];
+  for (const [positionName, place] of positions) {
+    for (const [sourceName, globals, expression] of asynchronousSources) {
+      // Catches: a call in this position not seen, so the function is not asynchronous, its calls are not candidates and run one at a time (elapsed 20).
+      test(`asynchronous and contained, so members overlap (elapsed 10): ${sourceName} in ${positionName}`, async () => {
+        const outcome = await exec(twiceWithBody(globals, place(expression)));
+        expect(outcome.error).toBeNull();
+        expect(outcome.elapsed).toBe(10);
+      });
+    }
+  }
+
+  for (const [positionName, place] of positions) {
+    // Catches: a name read in this position not counted as a use of the callee, so it runs concurrently with the member that defines it (error or elapsed 100).
+    test(`a callee reading another member's variable in ${positionName} waits for it (elapsed 200)`, async () => {
+      const source = [SLOW, `fn readA() { sleep(100); ${place("a")} }`, 'let a = slow("a", 100);', "let b = readA();"].join("\n");
+      const outcome = await exec(source);
+      expect(outcome.error).toBeNull();
+      expect({ output: outcome.output, elapsed: outcome.elapsed }).toEqual({ output: ["a"], elapsed: 200 });
+    });
+  }
+});
+
 describe("independence (9.2)", () => {
   // Catches: dependency via a name the later member passes as an argument (spec example, plus arithmetic on it).
   test("a member whose argument mentions a name defined by another member waits for it", async () => {
