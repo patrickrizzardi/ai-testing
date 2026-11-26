@@ -1,0 +1,4 @@
+[test]
+# Only the grader's own tests. hidden/ and selftest/ hold fixtures that
+# need SOLUTION_DIR and must run only through cli.ts.
+root = "src"

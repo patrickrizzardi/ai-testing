@@ -1,0 +1,13 @@
+{
+  "name": "grade",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "bun test src"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "jscpd": "^4",
+    "typescript": "^5"
+  }
+}
