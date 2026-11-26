@@ -1,0 +1,91 @@
+import { describe, expect, test } from "bun:test";
+import { RuntimeFailure } from "./failure";
+import { applyBinary, applyUnary } from "./operators";
+import type { RuntimeValue } from "./values";
+
+const OPERATOR_POSITION = { line: 3, column: 7 };
+const LARGEST = Number.MAX_SAFE_INTEGER;
+
+function failureOf(action: () => RuntimeValue): { line: number; column: number } {
+  try {
+    action();
+  } catch (failure) {
+    if (failure instanceof RuntimeFailure) return { line: failure.error.line, column: failure.error.column };
+    throw failure;
+  }
+  throw new Error("expected a RuntimeFailure");
+}
+
+describe("integer arithmetic (spec 5, 6.1)", () => {
+  test.each([
+    ["/", 7, 2, 3],
+    ["/", -7, 2, -3],
+    ["/", 7, -2, -3],
+    ["/", -7, -2, 3],
+    ["%", -7, 3, -1],
+    ["%", 7, -2, 1],
+    ["%", 7, 3, 1],
+    ["/", 0, -5, 0],
+    ["%", -4, 2, 0],
+    ["*", 0, -5, 0],
+    ["-", 0, 0, 0],
+    ["/", LARGEST, 2, 4503599627370495],
+    ["/", -LARGEST, 3, -3002399751580330],
+    ["%", LARGEST, 10, 1],
+    ["+", LARGEST, -LARGEST, 0],
+  ] as const)("%s of %d and %d is %d", (operator, left, right, expected) => {
+    const result = applyBinary(operator, left, right, OPERATOR_POSITION);
+    expect(result).toBe(expected);
+    expect(Object.is(result, -0)).toBe(false);
+  });
+
+  test.each([
+    ["+", LARGEST, 1],
+    ["-", -LARGEST, 1],
+    ["*", LARGEST, 2],
+    ["*", 94906266, 94906266],
+  ] as const)("%s of %d and %d is outside the integer range", (operator, left, right) => {
+    expect(failureOf(() => applyBinary(operator, left, right, OPERATOR_POSITION))).toEqual(OPERATOR_POSITION);
+  });
+
+  test.each(["/", "%"] as const)("%s by zero fails at the operator", (operator) => {
+    expect(failureOf(() => applyBinary(operator, 5, 0, OPERATOR_POSITION))).toEqual(OPERATOR_POSITION);
+  });
+
+  test("negation of zero is zero, not negative zero", () => {
+    expect(Object.is(applyUnary("-", 0, OPERATOR_POSITION), -0)).toBe(false);
+  });
+});
+
+describe("operand types (spec 6.1)", () => {
+  test.each([
+    ["+", 1, "a"],
+    ["+", "a", 1],
+    ["+", true, true],
+    ["+", null, null],
+    ["-", "a", "b"],
+    ["<", 1, "a"],
+    ["<", true, false],
+    [">=", null, null],
+  ] as const)("%s of %j and %j is a type error at the operator", (operator, left, right) => {
+    expect(failureOf(() => applyBinary(operator, left, right, OPERATOR_POSITION))).toEqual(OPERATOR_POSITION);
+  });
+
+  test("strings add and compare by UTF-16 code units, a prefix being smaller", () => {
+    expect(applyBinary("+", "ab", "c", OPERATOR_POSITION)).toBe("abc");
+    expect(applyBinary("<", "ab", "abc", OPERATOR_POSITION)).toBe(true);
+    expect(applyBinary("<", "Z", "a", OPERATOR_POSITION)).toBe(true);
+    expect(applyBinary(">=", "b", "b", OPERATOR_POSITION)).toBe(true);
+  });
+
+  test("equality never fails and different types are never equal", () => {
+    expect(applyBinary("==", 1, "1", OPERATOR_POSITION)).toBe(false);
+    expect(applyBinary("!=", null, false, OPERATOR_POSITION)).toBe(true);
+    expect(applyBinary("==", null, null, OPERATOR_POSITION)).toBe(true);
+  });
+
+  test("! needs a boolean and - needs an integer", () => {
+    expect(failureOf(() => applyUnary("!", 1, OPERATOR_POSITION))).toEqual(OPERATOR_POSITION);
+    expect(failureOf(() => applyUnary("-", true, OPERATOR_POSITION))).toEqual(OPERATOR_POSITION);
+  });
+});
