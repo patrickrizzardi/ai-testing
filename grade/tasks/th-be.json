@@ -1,0 +1,4 @@
+{
+  "entries": ["src/index.ts"],
+  "duplication": { "minTokens": 60 }
+}

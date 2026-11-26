@@ -1,0 +1,4 @@
+{
+  "entries": ["src/app.ts", "src/main.ts"],
+  "duplication": { "minTokens": 60 }
+}
