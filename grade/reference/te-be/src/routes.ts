@@ -1,7 +1,7 @@
 import { failWith, type AppError } from './errors.ts';
 import { succeed, type Result } from './result.ts';
 
-export type Route =
+type Route =
   | { name: 'createUser' }
   | { name: 'createBudget'; userIdText: string }
   | { name: 'createSpend'; userIdText: string }

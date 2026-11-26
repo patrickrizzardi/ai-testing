@@ -1,10 +1,10 @@
 import { fail, succeed, type Result } from './result.ts';
 
-export type LocalDate = { year: number; month: number; day: number };
+type LocalDate = { year: number; month: number; day: number };
 
 const DAYS_IN_MONTH = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31] as const;
 
-export function isLeapYear(year: number): boolean {
+function isLeapYear(year: number): boolean {
   return (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0;
 }
 

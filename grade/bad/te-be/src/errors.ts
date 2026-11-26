@@ -1,6 +1,6 @@
 import { fail, type Failure } from './result.ts';
 
-export type ErrorCode =
+type ErrorCode =
   | 'invalid_input'
   | 'not_found'
   | 'method_not_allowed'

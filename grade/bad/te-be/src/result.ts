@@ -1,4 +1,4 @@
-export type Success<Value> = { ok: true; value: Value };
+type Success<Value> = { ok: true; value: Value };
 export type Failure<Reason> = { ok: false; error: Reason };
 export type Result<Value, Reason> = Success<Value> | Failure<Reason>;
 
