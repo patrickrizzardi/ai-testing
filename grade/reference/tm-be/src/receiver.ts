@@ -6,6 +6,7 @@ import { applyEvent } from './lifecycle.ts';
 import { releaseDeferredEvents } from './release.ts';
 import { fail, succeed, type Result } from './result.ts';
 import type { ReceiveOutcome } from './responses.ts';
+import { catchThrown } from './thrownErrors.ts';
 import type { FeeConfig } from './types.ts';
 import type { WebhookEvent } from './webhookEvent.ts';
 
@@ -46,5 +47,5 @@ export function createReceiver(dependencies: ReceiverDependencies): Receiver {
     return succeed(applied.value);
   }
 
-  return { receive: (event, canonicalBody) => runInTransaction(db, () => receiveInsideTransaction(event, canonicalBody)) };
+  return { receive: (event, canonicalBody) => catchThrown(() => runInTransaction(db, () => receiveInsideTransaction(event, canonicalBody))) };
 }
