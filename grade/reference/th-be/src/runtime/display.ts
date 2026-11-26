@@ -6,7 +6,7 @@ function quoted(text: string): string {
   return `"${text.replace(/[\\"\n\t\r]/g, (character) => STRING_ESCAPES[character] ?? character)}"`;
 }
 
-/** `display(v)` of spec 5.1; a string is shown bare only at `topLevel`. O(size of the value). */
+/** `display(v)` of spec 5.1; a string is shown bare only at `topLevel`. O(size of the value * nesting depth): every level copies the text of the levels below it. */
 export function displayValue(value: RuntimeValue, topLevel: boolean): string {
   if (typeof value === "string") return topLevel ? value : quoted(value);
   if (value === null) return "nil";

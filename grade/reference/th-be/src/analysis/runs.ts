@@ -31,7 +31,7 @@ class RunPlanner {
     private readonly summaries: ReadonlyMap<FunctionDeclaration, FunctionSummary>,
   ) {}
 
-  /** Splits one statement list into single steps and independent concurrent runs. O(statements + names of the runs). */
+  /** Splits one statement list into single steps and independent concurrent runs. O(statements + the `areIndependent` cost of each run). */
   plan(statements: readonly Statement[]): Step[] {
     const steps: Step[] = [];
     let run: RunMember[] = [];
@@ -115,7 +115,7 @@ function collectStatementLists(program: Program): StatementList[] {
   return lists;
 }
 
-/** The execution steps of every statement list (spec 9.1, 9.2). O(program size + names of the runs). */
+/** The execution steps of every statement list (spec 9.1, 9.2). O(program size + the `areIndependent` cost of each run). */
 export function planRuns(program: Program, resolved: ResolvedProgram, summaries: ReadonlyMap<FunctionDeclaration, FunctionSummary>): Map<Program | Block, readonly Step[]> {
   const planner = new RunPlanner(resolved, summaries);
   return new Map(collectStatementLists(program).map(({ owner, statements }) => [owner, planner.plan(statements)]));

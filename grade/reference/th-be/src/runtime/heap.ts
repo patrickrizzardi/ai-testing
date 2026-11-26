@@ -85,31 +85,36 @@ export class Heap {
     return { allocs: this.allocations, frees: this.frees };
   }
 
-  /** Collects when enough objects were created since the last collection: amortized O(1) per creation. */
+  /**
+   * Collects once as many objects were created as the last collection took work (never fewer than
+   * `MINIMUM_COLLECTION_INTERVAL`): amortized O(1) per creation or element added.
+   */
   collectIfDue(): void {
     if (this.allocationsSinceCollection >= this.collectionInterval) this.collect();
   }
 
-  /** Frees every live object no root stack reaches. O(live objects + reachable scopes) time and memory. */
+  /** Frees every live object no root stack reaches. O(live objects + references followed) time, O(references followed) memory. */
   collect(): void {
     this.epoch += 1;
-    this.markReachable();
+    const referencesFollowed = this.markReachable();
     for (const object of this.live) {
       if (object.markEpoch === this.epoch) continue;
       this.live.delete(object);
       this.frees += 1;
     }
     this.allocationsSinceCollection = 0;
-    this.collectionInterval = Math.max(MINIMUM_COLLECTION_INTERVAL, this.live.size);
+    this.collectionInterval = Math.max(MINIMUM_COLLECTION_INTERVAL, this.live.size, referencesFollowed);
   }
 
-  /** Marks everything the root stacks reach with the current epoch, iteratively. O(reachable objects and scopes) time and memory. */
-  private markReachable(): void {
+  /** Marks everything the root stacks reach with the current epoch, iteratively; returns how many references it followed. O(that many) time and memory. */
+  private markReachable(): number {
     const pending: Traceable[] = [];
     for (const stack of this.rootStacks) {
       for (const item of stack.held()) pending.push(item);
     }
+    let referencesFollowed = 0;
     for (let item = pending.pop(); item !== undefined; item = pending.pop()) {
+      referencesFollowed += 1;
       if (typeof item !== "object" || item === null) continue;
       switch (item.kind) {
         case "array":
@@ -130,6 +135,7 @@ export class Heap {
           break;
       }
     }
+    return referencesFollowed;
   }
 
   /** Marks `item` as reached in this collection; false when it already was. */

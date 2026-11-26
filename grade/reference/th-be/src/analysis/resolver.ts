@@ -190,7 +190,10 @@ class Resolver {
   }
 }
 
-/** Builds scopes and resolves every identifier; reports the earliest static error of spec 4.2. O(n) time and memory. */
+/**
+ * Builds scopes and resolves every identifier; reports the earliest static error of spec 4.2.
+ * O(n * scope depth) time, because each identifier walks up the scope chain; O(n) memory.
+ */
 export function resolveProgram(program: Program): Result<ResolvedProgram> {
   return new Resolver().resolve(program);
 }

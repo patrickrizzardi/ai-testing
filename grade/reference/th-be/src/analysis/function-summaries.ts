@@ -65,7 +65,8 @@ function isContained(reached: ReadonlySet<FunctionDeclaration>, facts: ReadonlyM
 
 /**
  * Asynchrony, containment and reach-wide outside names of every function.
- * O(F * (F + calls)) time, O(F * names) memory in the worst case: one `reach` walk per function.
+ * O(F * (F + calls + names)) time, O(F * names) memory in the worst case: per function, one `reach` walk
+ * and a merge of the outside names of everything reached.
  */
 export function summarizeFunctions(facts: ReadonlyMap<FunctionDeclaration, FunctionFacts>): Map<FunctionDeclaration, FunctionSummary> {
   const asynchronous = findAsynchronousFunctions(facts);
