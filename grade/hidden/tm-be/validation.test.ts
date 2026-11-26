@@ -373,3 +373,56 @@ describe("validation: position in the order of steps", () => {
       expectProcessed(await client.send(authorized("evt_v", "pay_v", 777, "EUR", HALVES)));
     }));
 });
+
+// Spec: "Every string anywhere in the body must be well-formed Unicode" (High tier: untrusted input, data integrity).
+// bun:sqlite stores an unpaired surrogate as U+FFFD, so an accepted ill-formed id collides with its well-formed lookalike.
+const UNPAIRED_SURROGATES: [string, string][] = [
+  ["high surrogate \\ud800", "\ud800"],
+  ["low surrogate \\udc00", "\udc00"],
+];
+const REPLACEMENT_CHARACTER = "�";
+
+type SurrogateCase = {
+  field: string;
+  /** Builds the event with `text` in the field under test and well-formed values everywhere else. */
+  build: (text: string) => EventBody;
+  /** What the well-formed lookalike (the surrogate replaced by U+FFFD) must answer once the ill-formed event was rejected. */
+  expectLookalike: (reply: Reply) => void;
+};
+const expectLookalikeProcessed = (reply: Reply) => expectProcessed(reply);
+const surrogateCases: SurrogateCase[] = [
+  { field: "event id", build: (text) => authorized(`evt_${text}`, "pay_v", 100, "USD", HALVES), expectLookalike: expectLookalikeProcessed },
+  { field: "authorized paymentId", build: (text) => authorized("evt_v", `pay_${text}`, 100, "USD", HALVES), expectLookalike: expectLookalikeProcessed },
+  { field: "captured paymentId", build: (text) => captured("evt_v", `pay_${text}`), expectLookalike: expectDeferred },
+  { field: "splits merchantId", build: (text) => authorized("evt_v", "pay_v", 100, "USD", [split(`m_${text}`, 5000), split("m_b", 5000)]), expectLookalike: expectLookalikeProcessed },
+  { field: "refundId", build: (text) => refunded("evt_v", "pay_v", 10, `ref_${text}`), expectLookalike: expectDeferred },
+  { field: "currency", build: (text) => authorized("evt_v", "pay_v", 100, `US${text}`, HALVES), expectLookalike: (reply) => expectError(reply, 422, "unsupported_currency") },
+  { field: "createdAt", build: (text) => withField(baseAuthorized, ["createdAt"], `2023-11-14T22:13:20.5${text}Z`)(), expectLookalike: (reply) => expectError(reply, 400, "invalid_input") },
+  { field: "unlisted top-level field", build: (text) => withField(baseAuthorized, ["note"], `n_${text}`)(), expectLookalike: expectLookalikeProcessed },
+  { field: "unlisted field inside data", build: (text) => withField(baseAuthorized, ["data", "description"], `d_${text}`)(), expectLookalike: expectLookalikeProcessed },
+];
+
+describe("validation: ill-formed Unicode strings", () => {
+  for (const { field, build, expectLookalike } of surrogateCases) {
+    for (const [surrogateName, surrogate] of UNPAIRED_SURROGATES) {
+      test(`rejects an unpaired ${surrogateName} in ${field}, stores nothing`, () =>
+        withWorld(async (world) => {
+          // Bug caught: a lone surrogate reaching sqlite, stored as U+FFFD, so distinct ids collide (event_conflict, or a capture of the wrong payment).
+          const client = world.open();
+          expectError(await client.send(build(surrogate)), 400, "invalid_input");
+          await expectNoPayment(client, `pay_${REPLACEMENT_CHARACTER}`);
+          expectLookalike(await client.send(build(REPLACEMENT_CHARACTER)));
+        }));
+    }
+  }
+
+  test("well-formed astral characters (a proper surrogate pair) are accepted in ids and stored exactly", () =>
+    withWorld(async (world) => {
+      // Bug caught: over-strict validation rejecting valid surrogate pairs such as U+1F600.
+      const client = world.open();
+      expectProcessed(await client.send(authorized("evt_😀", "pay_😀", 100, "USD", [split("m_😀", 5000), split("m_b", 5000)])));
+      expectProcessed(await client.send(captured("evt_c_😀", "pay_😀")));
+      const payment = await client.payment("pay_😀");
+      if ((payment.body as Record<string, unknown>).paymentId !== "pay_😀") throw new Error(`stored ${JSON.stringify(payment.body)}`);
+    }));
+});
