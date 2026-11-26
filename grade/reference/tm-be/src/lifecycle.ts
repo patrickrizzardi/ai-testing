@@ -13,8 +13,10 @@ type Applied = Result<AppliedEvent, ApiFailure>;
 
 function creditSplits(db: Database, payment: PaymentRecord, totalMinor: number, direction: 1 | -1): void {
   const shares = splitLargestRemainder(totalMinor, payment.splits.map((split) => split.weightBps));
-  payment.splits.forEach((split, position) => {
-    adjustBalance(db, split.merchantId, payment.currency, direction * (shares[position] ?? 0));
+  shares.forEach((share, position) => {
+    const split = payment.splits[position];
+    if (split === undefined) throw new Error(`split ${position} of payment ${payment.paymentId} is missing`);
+    adjustBalance(db, split.merchantId, payment.currency, direction * share);
   });
 }
 
