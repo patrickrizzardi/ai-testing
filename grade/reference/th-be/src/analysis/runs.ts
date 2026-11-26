@@ -1,5 +1,6 @@
 import type { Block, Call, Expression, FunctionDeclaration, LetStatement, Program, Statement } from "../syntax/ast";
 import { containsCall, nestedBlocks, visitExpression, visitStatements } from "../syntax/walk";
+import { ASYNCHRONOUS_BUILTINS } from "../language/builtin-names";
 import type { FunctionSummary } from "./function-summaries";
 import type { RunMember, Step } from "./model";
 import type { ResolvedProgram } from "./resolver";
@@ -72,7 +73,7 @@ class RunPlanner {
     if (call.callee.kind !== "Identifier") return false;
     const declaration = this.program.resolutions.get(call.callee)?.declaration;
     if (declaration === undefined) return false;
-    if (declaration.kind === "builtin") return declaration.name === "sleep" || declaration.name === "fetch";
+    if (declaration.kind === "builtin") return ASYNCHRONOUS_BUILTINS.has(declaration.name);
     if (declaration.declaredFunction === null) return false;
     const summary = this.summaries.get(declaration.declaredFunction);
     return summary !== undefined && summary.asynchronous && summary.contained;
