@@ -111,6 +111,7 @@ function* runConcurrently(host: RunHost, prepared: readonly PreparedMember[], sc
  * Executes a run of two or more independent members (spec 9.3): arguments first, then either one
  * at a time (when an argument value is an array or record) or all at once. The argument values
  * and the results stay held on the strand's roots until the run is over.
+ * O(members) time and memory besides evaluating the arguments and running the members.
  */
 export function* executeConcurrentRun(host: RunHost, members: readonly RunMember[], scope: Scope, strand: Strand): Evaluation<void> {
   const mark = strand.roots.mark();
