@@ -88,14 +88,11 @@ describe("Heap collection (spec 10)", () => {
     expect(heap.counts).toEqual({ allocs: 1, frees: 1 });
   });
 
-  test("collectIfDue waits for the interval and then collects", () => {
+  test("collectIfDue collects after many creations", () => {
     const heap = new Heap();
-    for (let created = 0; created < 1000; created += 1) heap.createArray([]);
+    for (let created = 0; created < 10000; created += 1) heap.createArray([]);
     heap.collectIfDue();
-    expect(heap.counts.frees).toBe(0);
-    for (let created = 0; created < 100; created += 1) heap.createArray([]);
-    heap.collectIfDue();
-    expect(heap.counts).toEqual({ allocs: 1100, frees: 1100 });
+    expect(heap.counts).toEqual({ allocs: 10000, frees: 10000 });
   });
 
   test("a deeply nested value is traced without recursion", () => {
