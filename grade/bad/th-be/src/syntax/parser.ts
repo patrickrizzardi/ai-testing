@@ -1,4 +1,5 @@
 import { fail, succeed, syntaxErrorAt, type Result, type RippleError } from "../errors";
+import { requireElement } from "../invariants";
 import type {
   Block,
   Expression,
@@ -49,9 +50,7 @@ class Parser {
   constructor(private readonly tokens: readonly Token[]) {}
 
   private get current(): Token {
-    const token = this.tokens[this.position];
-    if (token === undefined) throw new Error("the token stream must end with an end or invalid token");
-    return token;
+    return requireElement(this.tokens, this.position, "token: the stream must end with an end or invalid token");
   }
 
   private advance(): Token {

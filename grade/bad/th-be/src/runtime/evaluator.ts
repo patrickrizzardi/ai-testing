@@ -1,5 +1,6 @@
 import type { Analysis, Step } from "../analysis";
 import type { SourcePosition } from "../errors";
+import { requireElement } from "../invariants";
 import { MAXIMUM_CALL_DEPTH } from "../language/builtin-names";
 import type { Binary, Block, Call, Expression, ForStatement, Identifier, Program, Statement } from "../syntax/ast";
 import { BUILTIN_ARITY, callBuiltin, type BuiltinEnvironment } from "./builtins";
@@ -17,12 +18,6 @@ import { Closure, type RuntimeValue } from "./values";
 type Completion = { readonly returned: RuntimeValue } | null;
 
 type LoopBinding = { readonly slot: number; readonly value: RuntimeValue };
-
-function elementAt(items: readonly RuntimeValue[], index: number): RuntimeValue {
-  const element = items[index];
-  if (element === undefined) throw new Error(`array element ${index} is missing after a bounds check`);
-  return element;
-}
 
 /**
  * Executes an analysed program. Statements and expressions are evaluations (generators) so that a
@@ -107,7 +102,7 @@ export class Evaluator implements RunHost {
     const mark = strand.roots.mark();
     strand.roots.push(array);
     for (let index = 0; index < array.items.length; index += 1) {
-      const completion = yield* this.executeBlock(statement.body, scope, strand, { slot, value: elementAt(array.items, index) });
+      const completion = yield* this.executeBlock(statement.body, scope, strand, { slot, value: requireElement(array.items, index, "array element") });
       if (completion !== null) {
         strand.roots.popTo(mark);
         return completion;
@@ -187,7 +182,7 @@ export class Evaluator implements RunHost {
           strand,
         );
         strand.roots.popTo(mark);
-        return this.environment.heap.createRecord(new Map(expression.fields.map((field, position) => [field.name, elementAt(values, position)])));
+        return this.environment.heap.createRecord(new Map(expression.fields.map((field, position) => [field.name, requireElement(values, position, "value of a record field")])));
       }
       case "Unary":
         return applyUnary(expression.operator, yield* this.evaluate(expression.operand, scope, strand), expression.operatorToken);
@@ -201,7 +196,7 @@ export class Evaluator implements RunHost {
         const index = yield* this.evaluate(expression.index, scope, strand);
         strand.roots.popTo(mark);
         const array = expectArray(target, expression.openBracket, "an indexed value");
-        return elementAt(array.items, expectIndexWithin(index, array.items.length, expression.openBracket));
+        return requireElement(array.items, expectIndexWithin(index, array.items.length, expression.openBracket), "array element");
       }
       case "Field": {
         const record = expectRecord(yield* this.evaluate(expression.target, scope, strand), expression.dot, "a value with a field");
@@ -271,8 +266,7 @@ export class Evaluator implements RunHost {
 
   private read(identifier: Identifier, scope: Scope): RuntimeValue {
     const { holder, slot } = this.locate(identifier, scope);
-    const value = holder.slots[slot];
-    if (value === undefined) throw new Error(`slot ${slot} of the scope for ${identifier.name} does not exist`);
+    const value = requireElement(holder.slots, slot, "scope slot");
     if (value === UNINITIALIZED) failAt(identifier.token, `'${identifier.name}' is used before it is initialized`);
     return value;
   }

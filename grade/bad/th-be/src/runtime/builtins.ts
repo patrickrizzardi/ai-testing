@@ -1,4 +1,5 @@
 import type { SourcePosition } from "../errors";
+import { requireElement } from "../invariants";
 import type { BuiltinName } from "../language/builtin-names";
 import type { Clock, IoEntry, Value } from "../public-types";
 import { displayValue } from "./display";
@@ -28,9 +29,7 @@ type BuiltinCall = {
 };
 
 function argumentAt(call: BuiltinCall, index: number): RuntimeValue {
-  const argument = call.argumentValues[index];
-  if (argument === undefined) throw new Error(`builtin called with ${call.argumentValues.length} arguments after the arity check`);
-  return argument;
+  return requireElement(call.argumentValues, index, "builtin argument after the arity check");
 }
 
 /** A fresh copy of an `io` value with one heap object per array and record (spec 7, `fetch`). */

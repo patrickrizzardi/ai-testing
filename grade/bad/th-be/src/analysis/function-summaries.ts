@@ -1,3 +1,4 @@
+import { requireEntry } from "../invariants";
 import type { FunctionDeclaration } from "../syntax/ast";
 import type { FunctionFacts } from "./function-facts";
 
@@ -8,12 +9,6 @@ export type FunctionSummary = {
   /** Names occurring in `reach(F)` that resolve outside their own function, builtins excluded (the `uses` of spec 9.2). */
   readonly reachOutsideNames: ReadonlySet<string>;
 };
-
-function factsOf(facts: ReadonlyMap<FunctionDeclaration, FunctionFacts>, functionDeclaration: FunctionDeclaration): FunctionFacts {
-  const found = facts.get(functionDeclaration);
-  if (found === undefined) throw new Error(`no facts collected for function ${functionDeclaration.name}`);
-  return found;
-}
 
 /**
  * The least set of asynchronous functions: those calling `sleep`/`fetch` by name, then every
@@ -48,14 +43,14 @@ function reach(functionDeclaration: FunctionDeclaration, facts: ReadonlyMap<Func
   for (let next = pending.pop(); next !== undefined; next = pending.pop()) {
     if (reached.has(next)) continue;
     reached.add(next);
-    pending.push(...factsOf(facts, next).calledFunctions);
+    pending.push(...requireEntry(facts, next, "facts of a function").calledFunctions);
   }
   return reached;
 }
 
 /** The four containment rules of spec section 8 over a whole `reach` set. */
 function isContained(reached: ReadonlySet<FunctionDeclaration>, facts: ReadonlyMap<FunctionDeclaration, FunctionFacts>): boolean {
-  const reachedFacts = [...reached].map((functionDeclaration) => factsOf(facts, functionDeclaration));
+  const reachedFacts = [...reached].map((functionDeclaration) => requireEntry(facts, functionDeclaration, "facts of a function"));
   const anyMutation = reachedFacts.some((functionFacts) => functionFacts.hasMutation);
   return reachedFacts.every(
     (functionFacts) =>
@@ -75,7 +70,7 @@ export function summarizeFunctions(facts: ReadonlyMap<FunctionDeclaration, Funct
     const reached = reach(functionDeclaration, facts);
     const reachOutsideNames = new Set<string>();
     for (const reachedFunction of reached) {
-      for (const name of factsOf(facts, reachedFunction).outsideNames) reachOutsideNames.add(name);
+      for (const name of requireEntry(facts, reachedFunction, "facts of a function").outsideNames) reachOutsideNames.add(name);
     }
     summaries.set(functionDeclaration, { asynchronous: asynchronous.has(functionDeclaration), contained: isContained(reached, facts), reachOutsideNames });
   }

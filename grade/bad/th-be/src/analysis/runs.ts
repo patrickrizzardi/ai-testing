@@ -1,4 +1,5 @@
-import type { Block, Call, Expression, FunctionDeclaration, LetStatement, Program, Statement } from "../syntax/ast";
+import { requireElement, requireEntry } from "../invariants";
+import type { Block, Call, Expression, FunctionDeclaration, Program, Statement } from "../syntax/ast";
 import { containsCall, visitExpression, visitStatements } from "../syntax/walk";
 import { ASYNCHRONOUS_BUILTINS } from "../language/builtin-names";
 import type { FunctionSummary } from "./function-summaries";
@@ -59,13 +60,7 @@ class RunPlanner {
     if (statement.waits) return null;
     const expression = statement.kind === "Let" ? statement.initializer : statement.expression;
     if (expression.kind !== "Call" || expression.argumentExpressions.some(containsCall) || !this.isConcurrentCallee(expression)) return null;
-    return { statement, call: expression, binding: statement.kind === "Let" ? this.declarationOfLet(statement) : null };
-  }
-
-  private declarationOfLet(statement: LetStatement): RunMember["binding"] {
-    const declaration = this.program.declarations.get(statement);
-    if (declaration === undefined) throw new Error(`let ${statement.name} has no declaration`);
-    return declaration;
+    return { statement, call: expression, binding: statement.kind === "Let" ? requireEntry(this.program.declarations, statement, "declaration of a let statement") : null };
   }
 
   /** `sleep`, `fetch`, or an asynchronous contained function, called by name. */
@@ -92,9 +87,8 @@ class RunPlanner {
     const names = members.map((member) => this.namesOf(member));
     for (let i = 0; i < names.length; i += 1) {
       for (let j = i + 1; j < names.length; j += 1) {
-        const first = names[i];
-        const second = names[j];
-        if (first === undefined || second === undefined) throw new Error("member names are missing");
+        const first = requireElement(names, i, "names of a member");
+        const second = requireElement(names, j, "names of a member");
         if (intersects(first.defines, second.defines) || intersects(first.defines, second.uses) || intersects(second.defines, first.uses)) return false;
       }
     }
