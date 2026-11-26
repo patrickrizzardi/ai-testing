@@ -1,0 +1,16 @@
+# TM-BE reviewer rubric
+
+Yes/no items for what the hidden tests and gates cannot judge. Answer each from the code in `tasks/tm-be/src/`; a "no" needs a file and line.
+
+1. **Integer minor units end to end.** Is every money value (amount, fee, share, balance, refunded total) kept and calculated as an integer, with no floating-point division, `Math.round`/`toFixed`, or decimal strings in the fee and split arithmetic? Large values need exact integer arithmetic (BigInt or equivalent). (SPEC "Money"; Library: Testing SOP, High tier money.)
+2. **One transaction per event.** Does one database transaction wrap the event record, payment change, ledger changes and every released deferred event, with `beforeCommit` called inside it just before commit and a rollback on any throw? (SPEC "Atomicity".)
+3. **Idempotency enforced by the database.** Is the event id guard a database constraint (primary key or unique index) or an insert inside the transaction that settles the race, rather than an in-memory set/map or a read-then-write outside a lock? (SPEC "Idempotency", "Shared database"; Library: Testing Backend SOP.)
+4. **Write lock taken before reading.** Does the transaction take the write lock when it begins (for example `BEGIN IMMEDIATE`) or otherwise serialise the read-check-write, so concurrent instances cannot both read old state? (SPEC "Shared database".)
+5. **Busy waiting configured.** Does the code set a busy timeout (or equivalent) so a request waits for another instance instead of failing, and is schema creation safe when several instances start on one new path? (SPEC "createApp", "Shared database".)
+6. **Signature compare is constant-time.** Is the received HMAC compared with `timingSafeEqual` (or `crypto.subtle.verify`) on equal-length byte arrays, not `===`/`==`/`startsWith` on strings? (SPEC "Signature"; Library: Secure Code Protocol.)
+7. **Raw body is what is signed.** Is the HMAC computed over the request text exactly as received, with the body parsed only after the signature and freshness checks pass? (SPEC "Signature".)
+8. **SQL values are bound.** Does every query bind its values as parameters, with no string-built SQL from request data? (Library: Secure Code Protocol; the grade gate checks only common shapes.)
+9. **Errors are values, 500 hides detail.** Does `fetch` convert every failure to a `{ code, message }` response through one place, never reject, and never put a stack trace, SQL text or thrown message into a 500 body? (SPEC "Responses"; Library: Fail Fast Protocol.)
+10. **Concerns are separated.** Are routing, signature checking, validation, fee/split arithmetic, the ledger/persistence and the lifecycle each in their own module or clearly separate functions, instead of one large handler? (Library: Code Organisation Protocol.)
+11. **Names and comments.** Are names descriptive (no `e`, `p`, `cfg`, `usr`), and do non-obvious functions (split, release loop) state their time/space cost in a doc comment? (Library: Self-Documenting Code Protocol.)
+12. **Config validated where it enters.** Are `FeeConfig` and the environment variables validated once, at `createApp` / `startServer`, with errors naming the field, and with no silent defaults for required values? (SPEC "createApp", "main.ts"; Library: Fail Fast Protocol.)
