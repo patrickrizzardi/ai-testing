@@ -1,5 +1,5 @@
 import type { Database } from 'bun:sqlite';
-import { apiFailure, type ApiFailure } from './apiError.ts';
+import { internalFailure, type ApiFailure } from './apiError.ts';
 import { listDeferredEvents, removeDeferredEvent } from './eventStore.ts';
 import { parseJsonObject } from './json.ts';
 import { applyEvent } from './lifecycle.ts';
@@ -22,7 +22,8 @@ export function releaseDeferredEvents(db: Database, paymentId: string, fees: Fee
       const body = parseJsonObject(deferred.canonicalBody);
       const event = body.ok ? validateEvent(body.value) : body;
       if (!event.ok) {
-        return fail(apiFailure('internal_error', `Stored deferred event ${deferred.eventId} is no longer valid`));
+        console.error(`tm-be: stored deferred event ${deferred.eventId} is no longer valid`);
+        return fail(internalFailure());
       }
       const applied = applyEvent(db, event.value, fees);
       const stillWaiting = applied.ok && applied.value === 'deferred';

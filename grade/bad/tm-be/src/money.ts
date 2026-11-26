@@ -38,8 +38,6 @@ export function splitLargestRemainder(totalMinor: number, weightsBps: readonly n
       if (left.remainder !== right.remainder) return left.remainder > right.remainder ? -1 : 1;
       return left.position - right.position;
     });
-  for (const { position } of positionsByRemainder.slice(0, leftover)) {
-    shares[position] = (shares[position] ?? 0n) + 1n;
-  }
-  return shares.map(Number);
+  const positionsGettingExtra = new Set(positionsByRemainder.slice(0, leftover).map(({ position }) => position));
+  return shares.map((share, position) => Number(positionsGettingExtra.has(position) ? share + 1n : share));
 }
