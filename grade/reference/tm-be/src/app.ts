@@ -1,4 +1,4 @@
-import { apiFailure } from './apiError.ts';
+import { internalFailure } from './apiError.ts';
 import { openDatabase } from './database.ts';
 import { validateFeeConfig } from './feeConfig.ts';
 import { handleBalanceRead, handlePaymentRead } from './readHandlers.ts';
@@ -38,7 +38,7 @@ export function createApp(options: AppOptions): App {
         return await route(request);
       } catch (error) {
         console.error('tm-be: unexpected failure while handling a request', error);
-        return errorResponse(apiFailure('internal_error', 'The server could not process the request'));
+        return errorResponse(internalFailure());
       }
     },
     close() {

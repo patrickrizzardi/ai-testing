@@ -26,3 +26,8 @@ export const STATUS_OF_ERROR: Record<ApiErrorCode, number> = {
 export function apiFailure(code: ApiErrorCode, message: string): ApiFailure {
   return { code, message };
 }
+
+/** The one body of every 500: it never carries a thrown message, SQL text or stored data. */
+export function internalFailure(): ApiFailure {
+  return apiFailure('internal_error', 'The server could not process the request');
+}
