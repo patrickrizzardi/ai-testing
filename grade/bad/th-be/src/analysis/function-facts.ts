@@ -100,7 +100,7 @@ class FactCollector {
   private observeAssignment(target: Expression): void {
     if (target.kind === "Identifier") {
       if (!this.isLocalVariable(target)) this.assignsNonLocalVariable = true;
-    } else {
+    } else if (target.kind === "Index") {
       this.recordMutation(mutationRoot(target));
     }
   }
