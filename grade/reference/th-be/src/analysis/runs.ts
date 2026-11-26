@@ -1,0 +1,116 @@
+import { requireElement, requireEntry } from "../invariants";
+import type { Block, Call, Expression, FunctionDeclaration, Program, Statement } from "../syntax/ast";
+import { containsCall, nestedBlocks, visitExpression, visitStatements } from "../syntax/walk";
+import { ASYNCHRONOUS_BUILTINS } from "../language/builtin-names";
+import type { FunctionSummary } from "./function-summaries";
+import type { RunMember, Step } from "./model";
+import { calleeDeclarationOf, type ResolvedProgram } from "./resolver";
+
+type StatementList = { readonly owner: Program | Block; readonly statements: readonly Statement[] };
+
+function namesIn(expression: Expression): Set<string> {
+  const names = new Set<string>();
+  visitExpression(expression, (visited) => {
+    if (visited.kind === "Identifier") names.add(visited.name);
+  });
+  return names;
+}
+
+function intersects(left: ReadonlySet<string>, right: ReadonlySet<string>): boolean {
+  for (const name of left) {
+    if (right.has(name)) return true;
+  }
+  return false;
+}
+
+/** The names a member defines and uses (spec 9.2). */
+type MemberNames = { readonly defines: ReadonlySet<string>; readonly uses: ReadonlySet<string> };
+
+class RunPlanner {
+  constructor(
+    private readonly program: ResolvedProgram,
+    private readonly summaries: ReadonlyMap<FunctionDeclaration, FunctionSummary>,
+  ) {}
+
+  /** Splits one statement list into single steps and independent concurrent runs. O(statements + the `areIndependent` cost of each run). */
+  plan(statements: readonly Statement[]): Step[] {
+    const steps: Step[] = [];
+    let run: RunMember[] = [];
+    const endRun = (): void => {
+      if (run.length >= 2 && this.areIndependent(run)) steps.push({ kind: "concurrentRun", members: run });
+      else steps.push(...run.map((member): Step => ({ kind: "single", statement: member.statement })));
+      run = [];
+    };
+    for (const statement of statements) {
+      const member = this.candidateOf(statement);
+      if (member === null) {
+        endRun();
+        steps.push({ kind: "single", statement });
+      } else {
+        run.push(member);
+      }
+    }
+    endRun();
+    return steps;
+  }
+
+  /** The statement as a run member when it is a candidate of spec 9.1, otherwise null. */
+  private candidateOf(statement: Statement): RunMember | null {
+    if (statement.kind !== "Let" && statement.kind !== "Expression") return null;
+    if (statement.waits) return null;
+    const expression = statement.kind === "Let" ? statement.initializer : statement.expression;
+    if (expression.kind !== "Call" || expression.argumentExpressions.some(containsCall) || !this.isConcurrentCallee(expression)) return null;
+    return { statement, call: expression, binding: statement.kind === "Let" ? requireEntry(this.program.declarations, statement, "declaration of a let statement") : null };
+  }
+
+  /** `sleep`, `fetch`, or an asynchronous contained function, called by name. */
+  private isConcurrentCallee(call: Call): boolean {
+    const declaration = calleeDeclarationOf(this.program.resolutions, call);
+    if (declaration === null) return false;
+    if (declaration.kind === "builtin") return ASYNCHRONOUS_BUILTINS.has(declaration.name);
+    if (declaration.declaredFunction === null) return false;
+    const summary = requireEntry(this.summaries, declaration.declaredFunction, "summary of a function");
+    return summary.asynchronous && summary.contained;
+  }
+
+  private namesOf(member: RunMember): MemberNames {
+    const uses = namesIn(member.call);
+    const callee = calleeDeclarationOf(this.program.resolutions, member.call)?.declaredFunction ?? null;
+    if (callee !== null) {
+      for (const name of requireEntry(this.summaries, callee, "summary of a function").reachOutsideNames) uses.add(name);
+    }
+    return { defines: new Set(member.binding === null ? [] : [member.binding.name]), uses };
+  }
+
+  /** Pairwise independence of spec 9.2. O(members^2 * names). */
+  private areIndependent(members: readonly RunMember[]): boolean {
+    const names = members.map((member) => this.namesOf(member));
+    for (let i = 0; i < names.length; i += 1) {
+      for (let j = i + 1; j < names.length; j += 1) {
+        const first = requireElement(names, i, "names of a member");
+        const second = requireElement(names, j, "names of a member");
+        if (intersects(first.defines, second.defines) || intersects(first.defines, second.uses) || intersects(second.defines, first.uses)) return false;
+      }
+    }
+    return true;
+  }
+}
+
+/** Every statement list of the program: the program's own and those of all blocks, function bodies included. */
+function collectStatementLists(program: Program): StatementList[] {
+  const lists: StatementList[] = [{ owner: program, statements: program.statements }];
+  visitStatements(
+    program.statements,
+    (statement) => {
+      for (const block of nestedBlocks(statement)) lists.push({ owner: block, statements: block.statements });
+    },
+    true,
+  );
+  return lists;
+}
+
+/** The execution steps of every statement list (spec 9.1, 9.2). O(program size + the `areIndependent` cost of each run). */
+export function planRuns(program: Program, resolved: ResolvedProgram, summaries: ReadonlyMap<FunctionDeclaration, FunctionSummary>): Map<Program | Block, readonly Step[]> {
+  const planner = new RunPlanner(resolved, summaries);
+  return new Map(collectStatementLists(program).map(({ owner, statements }) => [owner, planner.plan(statements)]));
+}
