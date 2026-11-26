@@ -180,6 +180,7 @@ The body must be UTF-8 JSON containing an object, otherwise 400 `invalid_input`.
 - `type`: one of `payment.authorized`, `payment.captured`, `payment.failed`, `payment.refunded`. Any other value (or a non-string) → 400.
 - `createdAt`: string in RFC 3339 `date-time` form: `YYYY-MM-DDTHH:MM:SS`, optional fraction `.d+`, then `Z` or `±HH:MM`. Uppercase `T` and `Z` only. It must be a real calendar date and time (month 01–12, valid day for the month and year, hour 00–23, minute 00–59, second 00–59, offset hour 00–23 and offset minute 00–59). It is validated and stored; it has no other effect.
 - `data`: an object, shaped by `type`. All ids below (`paymentId`, `merchantId`, `refundId`) are non-empty strings.
+- Every string anywhere in the body must be well-formed Unicode: a string containing an unpaired UTF-16 surrogate (for example the JSON escape "\ud800" on its own) is invalid → 400 invalid_input.
 
 | `type` | `data` |
 |---|---|
