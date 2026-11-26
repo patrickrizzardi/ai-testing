@@ -1,4 +1,4 @@
-import type { Block, Expression, FunctionDeclaration, Statement } from "./ast";
+import type { Block, Expression, FunctionDeclaration, IfStatement, Statement } from "./ast";
 
 /** The direct sub-expressions of `expression`, in evaluation order. O(children). */
 function childExpressions(expression: Expression): readonly Expression[] {
@@ -64,12 +64,11 @@ export function containsCall(expression: Expression): boolean {
   return found;
 }
 
-/** The blocks written directly in `statement`, including those of an `else if` chain and a function body. */
+/** The blocks written directly in `statement`: those of an `if` (its `else if` is a statement, see `elseIfOf`) and a function body. */
 export function nestedBlocks(statement: Statement): readonly Block[] {
   switch (statement.kind) {
     case "If":
-      if (statement.elseBranch === null) return [statement.thenBlock];
-      return statement.elseBranch.kind === "Block" ? [statement.thenBlock, statement.elseBranch] : [statement.thenBlock, ...nestedBlocks(statement.elseBranch)];
+      return statement.elseBranch?.kind === "Block" ? [statement.thenBlock, statement.elseBranch] : [statement.thenBlock];
     case "While":
     case "For":
     case "Function":
@@ -82,6 +81,11 @@ export function nestedBlocks(statement: Statement): readonly Block[] {
   }
 }
 
+/** The `else if` statement chained to `statement`, which is a statement of its own with a condition to analyse. */
+function elseIfOf(statement: Statement): IfStatement | null {
+  return statement.kind === "If" && statement.elseBranch?.kind === "If" ? statement.elseBranch : null;
+}
+
 /**
  * Calls `visit` on every statement in `statements` and in the blocks below them, in source order.
  * Bodies of function declarations are entered only when `intoFunctions` is true.
@@ -91,6 +95,8 @@ export function visitStatements(statements: readonly Statement[], visit: (statem
     visit(statement);
     if (statement.kind === "Function" && !intoFunctions) continue;
     for (const block of nestedBlocks(statement)) visitStatements(block.statements, visit, intoFunctions);
+    const elseIf = elseIfOf(statement);
+    if (elseIf !== null) visitStatements([elseIf], visit, intoFunctions);
   }
 }
 

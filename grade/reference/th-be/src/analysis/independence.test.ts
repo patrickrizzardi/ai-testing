@@ -93,6 +93,7 @@ describe("containment (spec 8)", () => {
     ["a mutation with no root", "fn make() { return [0]; }\nfn w() { sleep(1); make()[0] = 1; }\nw(); w();"],
     ["a mutation through a parenthesised base", "fn w() { let r = {}; sleep(1); (r).n = 1; }\nw(); w();"],
     ["a push with no argument", "fn w() { sleep(1); push(); }\nw(); w();"],
+    ["an opaque call in an else-if condition", "fn w(f) { sleep(1); if false { } else if f() { } }\nfn noop() { return true; }\nw(noop); w(noop);"],
     ["a mutation in one function and a non-local read in another it calls", "let k = 1;\nfn read() { return k; }\nfn w() { let a = [0]; sleep(1); a[0] = read(); }\nw(); w();"],
   ])("a function with %s is not contained", (_label, source) => {
     expect(planOf(source).filter((step) => step.startsWith("run"))).toEqual([]);
