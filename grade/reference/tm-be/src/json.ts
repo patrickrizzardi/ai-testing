@@ -11,7 +11,21 @@ export function isWholeNumberInRange(value: unknown, minimum: number, maximum: n
   return typeof value === 'number' && Number.isSafeInteger(value) && value >= minimum && value <= maximum;
 }
 
-/** Parses UTF-8 JSON text that must contain an object. */
+/**
+ * True when every string in the parsed value, object keys included, is well-formed Unicode.
+ * JSON escapes such as "\ud800" decode to an unpaired surrogate that SQLite would store as U+FFFD,
+ * making distinct ids collide. O(n) time and O(depth) memory for n JSON nodes.
+ */
+function hasOnlyWellFormedStrings(value: unknown): boolean {
+  if (typeof value === 'string') return value.isWellFormed();
+  if (Array.isArray(value)) return value.every(hasOnlyWellFormedStrings);
+  if (isJsonObject(value)) {
+    return Object.entries(value).every(([key, member]) => key.isWellFormed() && hasOnlyWellFormedStrings(member));
+  }
+  return true;
+}
+
+/** Parses UTF-8 JSON text that must contain an object whose strings are all well-formed Unicode. */
 export function parseJsonObject(text: string): Result<JsonObject, ApiFailure> {
   let parsed: unknown;
   try {
@@ -19,7 +33,9 @@ export function parseJsonObject(text: string): Result<JsonObject, ApiFailure> {
   } catch (error) {
     return fail(apiFailure('invalid_input', `Body is not valid JSON: ${error instanceof Error ? error.message : 'parse error'}`));
   }
-  return isJsonObject(parsed) ? succeed(parsed) : fail(apiFailure('invalid_input', 'Body must be a JSON object'));
+  if (!isJsonObject(parsed)) return fail(apiFailure('invalid_input', 'Body must be a JSON object'));
+  if (!hasOnlyWellFormedStrings(parsed)) return fail(apiFailure('invalid_input', 'Body contains a string with an unpaired UTF-16 surrogate'));
+  return succeed(parsed);
 }
 
 /** Decodes bytes as strict UTF-8. A leading BOM is kept (and then fails JSON parsing), not dropped. */
