@@ -17,6 +17,27 @@ function countCodePoints(text: string): number {
   return count;
 }
 
+/**
+ * True when every string in the parsed JSON, object keys and values nested at any depth included,
+ * is well-formed Unicode. O(n) time and memory in the size of the value; an explicit stack, not
+ * recursion, so a deeply nested body cannot overflow the call stack.
+ */
+function isWellFormedJson(root: unknown): boolean {
+  const pending: unknown[] = [root];
+  while (pending.length > 0) {
+    const value = pending.pop();
+    if (typeof value === 'string') {
+      if (!value.isWellFormed()) return false;
+    } else if (typeof value === 'object' && value !== null) {
+      for (const [key, child] of Object.entries(value)) {
+        if (!key.isWellFormed()) return false;
+        pending.push(child);
+      }
+    }
+  }
+  return true;
+}
+
 export function parseJsonObject(bodyText: string): Result<JsonObject, AppError> {
   let parsed: unknown;
   try {
@@ -27,6 +48,7 @@ export function parseJsonObject(bodyText: string): Result<JsonObject, AppError> 
   if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
     return invalidInput('body must be a JSON object');
   }
+  if (!isWellFormedJson(parsed)) return invalidInput('body strings must be well-formed Unicode');
   return succeed(parsed as JsonObject);
 }
 

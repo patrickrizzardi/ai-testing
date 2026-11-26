@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test';
-import { checkCategory, parseNewBudget, parseNewUser, parseUserId } from './validation.ts';
+import { checkCategory, parseJsonObject, parseNewBudget, parseNewUser, parseUserId } from './validation.ts';
 
 // Tier: High (validator). Catches: off-by-one category length limits, a missed character class, a non-string accepted.
 test.each([
@@ -69,4 +69,18 @@ test.each([
   ['', false],
 ])('a name of %# is valid: %p', (name, isValid) => {
   expect(parseNewUser({ name, timeZone: 'UTC' }).ok).toBe(isValid);
+});
+
+// Tier: High (validator, untrusted input). Catches: an unpaired surrogate accepted in any body string (value, unknown field, key, nested), which SQLite would store as U+FFFD.
+test.each([
+  ['{"name":"\\ud800"}', false],
+  ['{"name":"a\\udc00b"}', false],
+  ['{"name":"\\udc00\\ud800"}', false],
+  ['{"unknown":"\\ud800"}', false],
+  ['{"\\ud800":1}', false],
+  ['{"list":[1,{"deep":["\\ud800"]}]}', false],
+  ['{"name":"\\ud83d\\ude00"}', true],
+  ['{"name":"😀"}', true],
+])('body %p is well-formed: %p', (bodyText, isWellFormed) => {
+  expect(parseJsonObject(bodyText).ok).toBe(isWellFormed);
 });
