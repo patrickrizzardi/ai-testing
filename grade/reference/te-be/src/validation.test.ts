@@ -1,7 +1,7 @@
 import { expect, test } from 'bun:test';
 import { checkCategory, parseNewBudget, parseNewUser, parseUserId } from './validation.ts';
 
-// Tier: High (validators). Catches: off-by-one length limits, code-point vs UTF-16 length, a missed character class.
+// Tier: High (validator). Catches: off-by-one category length limits, a missed character class, a non-string accepted.
 test.each([
   ['a', true],
   ['a'.repeat(50), true],
@@ -18,6 +18,7 @@ test.each([
   expect(checkCategory(category).ok).toBe(isValid);
 });
 
+// Tier: High (validator). Catches: a signed, zero-padded or fractional id accepted.
 test.each([
   ['1', 1],
   ['42', 42],
@@ -26,6 +27,7 @@ test.each([
   expect(parseUserId(text)).toEqual({ ok: true, value: userId });
 });
 
+// Tier: High (validator). Catches: text that names no user answered as invalid_input, or a loss of precision above 2^53 - 1.
 test.each(['0', '01', '-1', '+1', '1.5', 'abc', '1e3', '9007199254740992', '9'.repeat(400)])(
   'user id %p names no user',
   (text) => {
@@ -33,6 +35,7 @@ test.each(['0', '01', '-1', '+1', '1.5', 'abc', '1e3', '9007199254740992', '9'.r
   },
 );
 
+// Tier: High (validator). Catches: off-by-one cents limits, a fractional or string number accepted, `5.0` rejected.
 test.each([
   [1, true],
   [1_000_000_000, true],
@@ -47,6 +50,7 @@ test.each([
   expect(parseNewBudget({ category: 'food', limitCents }).ok).toBe(isValid);
 });
 
+// Tier: High (validator). Catches: an offset-style or empty time zone accepted, which Intl alone would allow.
 test.each([
   ['Europe/Paris', true],
   ['UTC', true],
@@ -58,6 +62,7 @@ test.each([
   expect(parseNewUser({ name: 'Ada', timeZone }).ok).toBe(isValid);
 });
 
+// Tier: High (validator). Catches: name length counted in UTF-16 units instead of code points.
 test.each([
   ['😀'.repeat(100), true],
   ['😀'.repeat(101), false],

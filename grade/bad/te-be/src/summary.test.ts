@@ -21,6 +21,7 @@ test('the month window and daysLeft follow the user zone, not UTC', () => {
   });
 });
 
+// Tier: High (calendar arithmetic). Catches: daysLeft off-by-one, leap February, a day count in 24-hour periods across a clock change.
 test.each([
   ['2026-01-31', Date.UTC(2026, 0, 31, 12), 1],
   ['2028-02-01', Date.UTC(2028, 1, 1, 12), 29],
@@ -29,6 +30,7 @@ test.each([
   expect(summarizeBudget({ budget, spends: [], timeZone: 'Europe/Paris', nowEpochMs }).daysLeft).toBe(daysLeft);
 });
 
+// Tier: High (money arithmetic). Catches: a positive allowance on an exceeded budget.
 test('a spent budget has a negative remainder and a zero allowance', () => {
   const spends = [{ amountCents: 60_000, spentAtEpochMs: Date.UTC(2026, 2, 5) }];
   const summary = summarizeBudget({ budget, spends, timeZone: 'UTC', nowEpochMs: Date.UTC(2026, 2, 14) });
