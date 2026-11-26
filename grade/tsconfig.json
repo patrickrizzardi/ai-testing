@@ -10,5 +10,5 @@
     "allowImportingTsExtensions": true,
     "types": ["bun"]
   },
-  "include": ["cli.ts", "src"]
+  "include": ["cli.ts", "src", "hidden/**/*.ts"]
 }
