@@ -1,12 +1,11 @@
 import { describe, expect, test } from "bun:test";
+import { programOf } from "../test-support";
 import type { Expression, Statement } from "./ast";
 import { lex } from "./lexer";
 import { parse } from "./parser";
 
 function parseStatements(source: string): Statement[] {
-  const parsed = parse(lex(source));
-  if (!parsed.ok) throw new Error(`unexpected syntax error: ${parsed.error.message}`);
-  return [...parsed.value.statements];
+  return [...programOf(source).statements];
 }
 
 /** An expression as a fully parenthesised string, so tests state precedence and associativity directly. */

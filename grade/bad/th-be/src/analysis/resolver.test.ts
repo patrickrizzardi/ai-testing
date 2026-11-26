@@ -1,12 +1,9 @@
 import { describe, expect, test } from "bun:test";
 import { analyze } from ".";
-import { lex } from "../syntax/lexer";
-import { parse } from "../syntax/parser";
+import { programOf } from "../test-support";
 
 function staticErrorOf(source: string): { line: number; column: number } | null {
-  const parsed = parse(lex(source));
-  if (!parsed.ok) throw new Error(`unexpected syntax error: ${parsed.error.message}`);
-  const analysis = analyze(parsed.value);
+  const analysis = analyze(programOf(source));
   return analysis.ok ? null : { line: analysis.error.line, column: analysis.error.column };
 }
 

@@ -1,26 +1,24 @@
 import { describe, expect, test } from "bun:test";
-import { analyze } from ".";
-import { lex } from "../syntax/lexer";
-import { parse } from "../syntax/parser";
+import type { Step } from ".";
+import { analysisOf } from "../test-support";
 
-/** The program's top-level steps as text: `run:N` for a concurrent run of N members, `single` otherwise. */
+/** Steps as text: `run:N` for a concurrent run of N members, `single` otherwise. */
+function describeSteps(steps: readonly Step[]): string[] {
+  return steps.map((step) => (step.kind === "concurrentRun" ? `run:${step.members.length}` : "single"));
+}
+
+/** The program's top-level steps as text. */
 function planOf(source: string): string[] {
-  const parsed = parse(lex(source));
-  if (!parsed.ok) throw new Error(`unexpected syntax error: ${parsed.error.message}`);
-  const analysis = analyze(parsed.value);
-  if (!analysis.ok) throw new Error(`unexpected static error: ${analysis.error.message}`);
-  return analysis.value.stepsOf(parsed.value).map((step) => (step.kind === "concurrentRun" ? `run:${step.members.length}` : "single"));
+  const { program, analysis } = analysisOf(source);
+  return describeSteps(analysis.stepsOf(program));
 }
 
 /** Like `planOf`, for the statements of the then-block of the program's first `if`. */
 function planOfFirstIfBlock(source: string): string[] {
-  const parsed = parse(lex(source));
-  if (!parsed.ok) throw new Error(`unexpected syntax error: ${parsed.error.message}`);
-  const analysis = analyze(parsed.value);
-  if (!analysis.ok) throw new Error(`unexpected static error: ${analysis.error.message}`);
-  const statement = parsed.value.statements.find((candidate) => candidate.kind === "If");
+  const { program, analysis } = analysisOf(source);
+  const statement = program.statements.find((candidate) => candidate.kind === "If");
   if (statement?.kind !== "If") throw new Error("the program has no if statement");
-  return analysis.value.stepsOf(statement.thenBlock).map((step) => (step.kind === "concurrentRun" ? `run:${step.members.length}` : "single"));
+  return describeSteps(analysis.stepsOf(statement.thenBlock));
 }
 
 const SLEEPER = "fn nap(ms) { sleep(ms); }\n";
@@ -52,15 +50,6 @@ describe("candidates and runs (spec 9.1)", () => {
     expect(planOf("fn go(sleep) { sleep(1); sleep(2); }\nsleep(1); sleep(2);")).toEqual(["single", "run:2"]);
   });
 
-  test("runs are found in blocks and function bodies too", () => {
-    const parsed = parse(lex("if true { sleep(1); sleep(2); }"));
-    if (!parsed.ok) throw new Error("syntax error");
-    const analysis = analyze(parsed.value);
-    if (!analysis.ok) throw new Error("static error");
-    const statement = parsed.value.statements[0];
-    if (statement?.kind !== "If") throw new Error("expected an if");
-    expect(analysis.value.stepsOf(statement.thenBlock).map((step) => step.kind)).toEqual(["concurrentRun"]);
-  });
 });
 
 describe("asynchronous functions (spec 8)", () => {

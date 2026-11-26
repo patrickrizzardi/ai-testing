@@ -1,17 +1,12 @@
 import { describe, expect, test } from "bun:test";
-import { analyze } from "../analysis";
-import { lex } from "../syntax/lexer";
-import { parse } from "../syntax/parser";
+import { analysisOf } from "../test-support";
 import { Heap } from "./heap";
 import { createBuiltinScope, createScope } from "./scope";
 import { Closure, type RuntimeValue } from "./values";
 
 function createProgramScope(source: string) {
-  const parsed = parse(lex(source));
-  if (!parsed.ok) throw new Error("syntax error");
-  const analysis = analyze(parsed.value);
-  if (!analysis.ok) throw new Error("static error");
-  return { analysis: analysis.value, program: parsed.value, scope: createScope(analysis.value.scopeOf(parsed.value), createBuiltinScope(analysis.value.builtinScope)) };
+  const { program, analysis } = analysisOf(source);
+  return { analysis, program, scope: createScope(analysis.scopeOf(program), createBuiltinScope(analysis.builtinScope)) };
 }
 
 describe("Heap collection (spec 10)", () => {
